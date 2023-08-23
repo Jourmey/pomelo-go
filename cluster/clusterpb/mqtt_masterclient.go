@@ -19,12 +19,16 @@ const (
 	topic_Monitor  = "monitor"
 
 	action_Subscribe = "subscribe"
+	action_Record    = "record"
 
 	pro_ok   = 1
 	pro_fail = -1
 )
 
-type requestCallback func(msg monitorMessage)
+type monitorRequest struct {
+	resp  chan monitorMessage
+	reqId int
+}
 
 type MqttMasterClient struct {
 	clientId string // = 'MQTT_ADMIN_' + Date.now();
@@ -33,11 +37,11 @@ type MqttMasterClient struct {
 	port           int
 	keepaliveTimer time.Duration // default 2s
 	pingTimeout    time.Duration // default 1s
+	requestTimeout time.Duration // default 10s
 
-	reqId  int
-	socket mqtt.Client
-	resp   sync.Map // 返回值队列
-	//callbacks sync.Map //  map[int]requestCallback
+	reqId       int
+	socket      mqtt.Client
+	monitorResp sync.Map // monitor request 请求列表
 
 	register  chan registerResponse
 	subscribe chan proto.ClusterServerInfo
@@ -66,7 +70,7 @@ func (m *MqttMasterClient) Register(ctx context.Context, in *proto.RegisterReque
 
 		return nil, errors.New(res.Msg)
 
-	case <-time.After(10 * time.Second):
+	case <-time.After(m.requestTimeout):
 		return nil, errors.New("receive register timeout")
 	}
 
@@ -81,29 +85,33 @@ func (m *MqttMasterClient) Subscribe(ctx context.Context, in *proto.SubscribeReq
 
 	serverInfos := make(map[string]proto.ClusterServerInfo)
 
-	err := m.Request(proto.MASTER_WATCHER, request, func(msg monitorMessage) {
+	response, err := m.request(proto.MASTER_WATCHER, request)
 
-		for serverId, serverInfo := range msg.Body {
+	for serverId, serverInfo := range response.Body {
 
-			si, ok := serverInfo.(map[string]interface{})
-			if !ok {
-				logx.Errorf("Subscribe serverInfo.(map[string]interface{}) failed ")
-				continue
-			}
-
-			serverInfos[serverId] = proto.ClusterServerInfo(si)
+		si, ok := serverInfo.(map[string]interface{})
+		if !ok {
+			logx.Errorf("Subscribe serverInfo.(map[string]interface{}) failed ")
+			continue
 		}
 
-		logx.Info("Subscribe success")
-	})
+		serverInfos[serverId] = proto.ClusterServerInfo(si)
+	}
 
 	res := proto.SubscribeResponse(serverInfos)
 	return &res, err
 }
 
 func (m *MqttMasterClient) Record(ctx context.Context, in *proto.RecordRequest) (*proto.RecordResponse, error) {
-	//TODO implement me
-	panic("implement me")
+
+	var msg = recordRequest{
+		Action: action_Record,
+		Id:     in.Id,
+	}
+
+	err := m.notify(proto.MASTER_WATCHER, msg)
+
+	return &proto.RecordResponse{}, err
 }
 
 func (m *MqttMasterClient) Connect() error {
@@ -152,6 +160,18 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 		} else if msg.RespId != nil {
 
+			req, ok := m.monitorResp.LoadAndDelete(*msg.RespId)
+			if !ok {
+				return
+			}
+			mReq := req.(monitorRequest)
+
+			select {
+			case mReq.resp <- msg:
+			default:
+				logx.Errorf("monitorRequest chan failed")
+			}
+
 		} else {
 
 		}
@@ -164,7 +184,7 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 }
 
-func (m *MqttMasterClient) Notify(moduleId string, body interface{}) error {
+func (m *MqttMasterClient) notify(moduleId string, body interface{}) error {
 	return m.doSend(topic_Monitor, map[string]interface{}{
 
 		"moduleId": moduleId,
@@ -172,23 +192,36 @@ func (m *MqttMasterClient) Notify(moduleId string, body interface{}) error {
 	})
 }
 
-func (m *MqttMasterClient) Request(moduleId string, body interface{}, cb requestCallback) error {
+// 同步请求
+func (m *MqttMasterClient) request(moduleId string, body interface{}) (res monitorMessage, err error) {
 
 	m.reqId++
 	var reqId = m.reqId
-	err := m.doSend(topic_Monitor, map[string]interface{}{
+	err = m.doSend(topic_Monitor, map[string]interface{}{
 		"reqId":    reqId,
 		"moduleId": moduleId,
 		"body":     body,
 	})
 
 	if err != nil {
-		return err
+		return monitorMessage{}, err
 	}
 
-	m.callbacks.Store(reqId, cb)
+	r := monitorRequest{
+		resp:  make(chan monitorMessage),
+		reqId: reqId,
+	}
 
-	return nil
+	m.monitorResp.Store(reqId, r)
+
+	select {
+	case res = <-r.resp:
+		return res, nil
+
+	case <-time.After(m.requestTimeout):
+		return monitorMessage{}, errors.New("timeout")
+	}
+
 }
 
 func (m *MqttMasterClient) doSend(topic string, msg interface{}) error {
@@ -210,6 +243,7 @@ func NewMasterClient(host string, port int) *MqttMasterClient {
 		clientId       = fmt.Sprintf("MQTT_ADMIN_%d", time.Now().UnixMilli())
 		keepaliveTimer = 2 * time.Second
 		pingTimeout    = 1 * time.Second
+		requestTimeout = 5 * time.Second
 	)
 
 	m := &MqttMasterClient{
@@ -218,7 +252,10 @@ func NewMasterClient(host string, port int) *MqttMasterClient {
 		port:           port,
 		keepaliveTimer: keepaliveTimer,
 		pingTimeout:    pingTimeout,
+		requestTimeout: requestTimeout,
+		reqId:          0,
 		socket:         nil,
+		monitorResp:    sync.Map{},
 		register:       make(chan registerResponse),
 		subscribe:      make(chan proto.ClusterServerInfo),
 	}
@@ -255,6 +292,11 @@ type registerResponse struct {
 }
 
 type subscribeRequest struct {
+	Action string `json:"action"`
+	Id     string `json:"id"`
+}
+
+type recordRequest struct {
 	Action string `json:"action"`
 	Id     string `json:"id"`
 }
