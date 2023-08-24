@@ -49,7 +49,7 @@ func TestNode_Startup(t *testing.T) {
 				"port":          4061,
 				"clientPort":    3061,
 				"wssPort":       80,
-				"frontend":      "true",
+				"frontend":      "false",
 				"channelType":   2,
 				"cloudType":     1,
 				"clusterCount":  1,

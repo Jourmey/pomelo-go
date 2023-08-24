@@ -48,25 +48,9 @@ func (n *Node) Startup() error {
 		}
 	}
 
-	if err := n.initMasterClient(); err != nil {
+	if err := n.initNode(); err != nil {
 		return err
 	}
-
-	_, err := n.masterClient.Register(context.Background(), &proto.RegisterRequest{
-		ServerInfo: n.ServerInfo,
-		Token:      n.Token,
-	})
-	if err != nil {
-		return err
-	}
-
-	// 获取注册信息
-	subscribeResponse, err := n.masterClient.Subscribe(context.Background(), &proto.SubscribeRequest{
-		Id: n.ServerId,
-	})
-
-	// 初始化handler
-	n.handler.initRemoteService(*subscribeResponse)
 
 	// Initialize all components
 	for _, c := range components {
@@ -84,10 +68,22 @@ func (n *Node) Handler() *LocalHandler {
 }
 
 func (n *Node) Shutdown() {
+	// reverse call `BeforeShutdown` hooks
+	components := n.Components.List()
+	length := len(components)
+	for i := length - 1; i >= 0; i-- {
+		components[i].Comp.BeforeShutdown()
+	}
+	// reverse call `Shutdown` hooks
+	for i := length - 1; i >= 0; i-- {
+		components[i].Comp.Shutdown()
+	}
+
+	//_, err = client.Unregister(context.Background(), request)
 
 }
 
-func (n *Node) initMasterClient() error {
+func (n *Node) initNode() error {
 	if !n.IsMaster && n.AdvertiseAddr == "" {
 		return errors.New("invalid AdvertiseAddr")
 	}
@@ -131,6 +127,22 @@ func (n *Node) initMasterClient() error {
 	if err != nil {
 		return err
 	}
+
+	_, err = mqttMasterClient.Register(context.Background(), &proto.RegisterRequest{
+		ServerInfo: n.ServerInfo,
+		Token:      n.Token,
+	})
+	if err != nil {
+		return err
+	}
+
+	// 获取注册信息
+	subscribeResponse, err := mqttMasterClient.Subscribe(context.Background(), &proto.SubscribeRequest{
+		Id: n.ServerId,
+	})
+
+	// 初始化handler
+	n.handler.initRemoteService(*subscribeResponse)
 
 	n.masterClient = mqttMasterClient
 	return nil

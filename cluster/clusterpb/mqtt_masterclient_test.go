@@ -110,7 +110,7 @@ func Test_MqttMasterClient_Record(t *testing.T) {
 func Test_MqttMasterClient_MonitorHandler(t *testing.T) {
 
 	res, err := client.MonitorHandler(context.Background(), &proto.MonitorHandlerRequest{
-		CallBackHandler: func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo) {
+		CallBackHandler: func(action proto.MonitorAction, serverInfos []*proto.ClusterServerInfo) {
 			t.Log(action)
 			t.Log(serverInfos)
 		},

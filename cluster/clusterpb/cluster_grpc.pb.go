@@ -19,16 +19,12 @@ type MasterClient interface {
 //type MasterServer interface {
 //}
 
-//type MemberClient interface {
-//}
+type MemberClient interface {
+	// Request 发送Request rpc请求
+	Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
+	// Notify 发送Notify rpc请求
+	Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
+}
 
 //type MemberServer interface {
-//	HandleRequest(context.Context, *RequestMessage) (*MemberHandleResponse, error)
-//	HandleNotify(context.Context, *NotifyMessage) (*MemberHandleResponse, error)
-//	HandlePush(context.Context, *PushMessage) (*MemberHandleResponse, error)
-//	HandleResponse(context.Context, *ResponseMessage) (*MemberHandleResponse, error)
-//	NewMember(context.Context, *NewMemberRequest) (*NewMemberResponse, error)
-//	DelMember(context.Context, *DelMemberRequest) (*DelMemberResponse, error)
-//	SessionClosed(context.Context, *SessionClosedRequest) (*SessionClosedResponse, error)
-//	CloseSession(context.Context, *CloseSessionRequest) (*CloseSessionResponse, error)
 //}

@@ -76,3 +76,15 @@ type (
 
 	MonitorHandlerResponse struct{}
 )
+
+// Request 发送Request rpc请求
+type (
+	RequestRequest  struct{}
+	RequestResponse struct{}
+)
+
+// Notify 发送Notify rpc请求
+type (
+	NotifyRequest  struct{}
+	NotifyResponse struct{}
+)

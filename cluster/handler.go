@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"fmt"
 	"github.com/zeromicro/go-zero/core/logx"
 	"pomelo-go/cluster/clusterpb/proto"
 	"pomelo-go/component"
@@ -34,7 +35,14 @@ func NewHandler(currentNode *Node) *LocalHandler {
 }
 
 func (h *LocalHandler) register(comp component.Component, opts []component.Option) error {
+	s := component.NewService(comp, opts)
 
+	if _, ok := h.localServices[s.Name]; ok {
+		return fmt.Errorf("handler: service already defined: %s", s.Name)
+	}
+
+	// register all localHandlers
+	h.localServices[s.Name] = s
 	return nil
 }
 
