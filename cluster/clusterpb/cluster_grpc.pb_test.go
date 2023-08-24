@@ -11,18 +11,16 @@ import (
 )
 
 var (
-	host = "localhost"
-	port = 3005
-
-	serverId = "cluster-server-connector-998"
+	advertiseAddr = "localhost:3005"
+	serverId      = "cluster-server-connector-998"
 
 	request = &proto.RegisterRequest{
 		ServerInfo: proto.ClusterServerInfo{
-			"id":         serverId,
-			"type":       proto.Type_Monitor,
-			"serverType": proto.ServerType_Connector,
-			"pid":        99,
-			"info": map[string]interface{}{
+			Id:         serverId,
+			Type:       proto.Type_Monitor,
+			ServerType: proto.ServerType_Connector,
+			Pid:        99,
+			Info: map[string]interface{}{
 				"env":           "local",
 				"host":          "127.0.0.1",
 				"port":          4061,
@@ -45,7 +43,7 @@ var (
 )
 
 func Init() {
-	c := NewMasterClient(host, port)
+	c := NewMqttMasterClient(advertiseAddr)
 
 	for {
 		err := c.Connect()

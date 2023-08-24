@@ -29,22 +29,22 @@ const (
 )
 
 // ClusterServerInfo 集群服务信息
-type ClusterServerInfo map[string]interface{}
+//type ClusterServerInfo map[string]interface{}
 
-//type ClusterServerInfo struct {
-//	Id         string                 `json:"id"`
-//	Type       string                 `json:"type"`
-//	ServerType string                 `json:"serverType"`
-//	Pid        int                    `json:"pid"`
-//	Info       map[string]interface{} `json:"info"`
-//}
+type ClusterServerInfo struct {
+	Id         string                 `json:"id"`
+	Type       string                 `json:"type"`
+	ServerType string                 `json:"serverType"`
+	Pid        int                    `json:"pid"`
+	Info       map[string]interface{} `json:"info"`
+}
 
 // Register 向master注册服务信息
 type (
 	RegisterRequest struct {
 		ServerInfo ClusterServerInfo
 
-		Token string `json:"token"`
+		Token string
 	}
 
 	RegisterResponse struct{}
@@ -56,7 +56,7 @@ type (
 		Id string `json:"id"`
 	}
 
-	SubscribeResponse map[string]ClusterServerInfo // 集群内其他服务信息
+	SubscribeResponse map[string]*ClusterServerInfo // 集群内其他服务信息
 )
 
 // Record 通知master启动完毕
@@ -71,7 +71,7 @@ type (
 // MonitorHandler 监听master中的集群变化
 type (
 	MonitorHandlerRequest struct {
-		CallBackHandler func(action MonitorAction, serverInfos []ClusterServerInfo)
+		CallBackHandler func(action MonitorAction, serverInfos []*ClusterServerInfo)
 	}
 
 	MonitorHandlerResponse struct{}

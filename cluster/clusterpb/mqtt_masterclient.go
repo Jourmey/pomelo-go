@@ -34,8 +34,7 @@ type monitorRequest struct {
 type MqttMasterClient struct {
 	clientId string // = 'MQTT_ADMIN_' + Date.now();
 
-	host           string
-	port           int
+	advertiseAddr  string
 	keepaliveTimer time.Duration // default 2s
 	pingTimeout    time.Duration // default 1s
 	requestTimeout time.Duration // default 10s
@@ -43,7 +42,7 @@ type MqttMasterClient struct {
 	reqId          int
 	socket         mqtt.Client
 	monitorResp    sync.Map // monitor request 请求列表
-	monitorHandler func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo)
+	monitorHandler func(action proto.MonitorAction, serverInfos []*proto.ClusterServerInfo)
 
 	register  chan registerResponse
 	subscribe chan proto.ClusterServerInfo
@@ -51,11 +50,17 @@ type MqttMasterClient struct {
 
 func (m *MqttMasterClient) Register(ctx context.Context, in *proto.RegisterRequest) (*proto.RegisterResponse, error) {
 
-	req := make(map[string]interface{}, len(in.ServerInfo)+1)
+	req := make(map[string]interface{}, len(in.ServerInfo.Info)+10)
 
-	for s, i := range in.ServerInfo {
+	for s, i := range in.ServerInfo.Info {
 		req[s] = i
 	}
+
+	req["id"] = in.ServerInfo.Id
+	req["type"] = in.ServerInfo.Type
+	req["serverType"] = in.ServerInfo.ServerType
+	req["pid"] = in.ServerInfo.Pid
+	req["info"] = in.ServerInfo.Info
 	req["token"] = in.Token
 
 	err := m.doSend(topic_Register, req)
@@ -185,8 +190,8 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 			}
 
 			type monitorMessageOnChangeBody struct {
-				Action proto.MonitorAction       `json:"action"`
-				Server []proto.ClusterServerInfo `json:"server"`
+				Action proto.MonitorAction        `json:"action"`
+				Server []*proto.ClusterServerInfo `json:"server"`
 			}
 
 			body := monitorMessageOnChangeBody{}
@@ -261,7 +266,7 @@ func (m *MqttMasterClient) doSend(topic string, msg interface{}) error {
 	return nil
 }
 
-func NewMasterClient(host string, port int) *MqttMasterClient {
+func NewMqttMasterClient(advertiseAddr string) *MqttMasterClient {
 
 	var (
 		clientId       = fmt.Sprintf("MQTT_ADMIN_%d", time.Now().UnixMilli())
@@ -272,8 +277,7 @@ func NewMasterClient(host string, port int) *MqttMasterClient {
 
 	m := &MqttMasterClient{
 		clientId:       clientId,
-		host:           host,
-		port:           port,
+		advertiseAddr:  advertiseAddr,
 		keepaliveTimer: keepaliveTimer,
 		pingTimeout:    pingTimeout,
 		requestTimeout: requestTimeout,
@@ -285,7 +289,7 @@ func NewMasterClient(host string, port int) *MqttMasterClient {
 	}
 
 	opts := mqtt.NewClientOptions().
-		AddBroker(fmt.Sprintf("tcp://%s:%d", m.host, m.port)).
+		AddBroker(advertiseAddr).
 		SetClientID(m.clientId)
 
 	opts.SetKeepAlive(m.keepaliveTimer)
