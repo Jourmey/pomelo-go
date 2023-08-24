@@ -12,6 +12,8 @@ type MasterClient interface {
 	Subscribe(ctx context.Context, in *proto.SubscribeRequest) (*proto.SubscribeResponse, error)
 	// Record 通知master启动完毕
 	Record(ctx context.Context, in *proto.RecordRequest) (*proto.RecordResponse, error)
+	// MonitorHandler 监听master中的集群变化
+	MonitorHandler(ctx context.Context, in *proto.MonitorHandlerRequest) (*proto.MonitorHandlerResponse, error)
 }
 
 //type MasterServer interface {

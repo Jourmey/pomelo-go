@@ -5,12 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/zeromicro/go-zero/core/logx"
+	"pomelo-go/tool"
 	"strconv"
 	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/zeromicro/go-zero/core/logx"
 	"pomelo-go/cluster/clusterpb/proto"
 )
 
@@ -39,9 +40,10 @@ type MqttMasterClient struct {
 	pingTimeout    time.Duration // default 1s
 	requestTimeout time.Duration // default 10s
 
-	reqId       int
-	socket      mqtt.Client
-	monitorResp sync.Map // monitor request 请求列表
+	reqId          int
+	socket         mqtt.Client
+	monitorResp    sync.Map // monitor request 请求列表
+	monitorHandler func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo)
 
 	register  chan registerResponse
 	subscribe chan proto.ClusterServerInfo
@@ -83,23 +85,16 @@ func (m *MqttMasterClient) Subscribe(ctx context.Context, in *proto.SubscribeReq
 		Id:     in.Id,
 	}
 
-	serverInfos := make(map[string]proto.ClusterServerInfo)
-
 	response, err := m.request(proto.MASTER_WATCHER, request)
 
-	for serverId, serverInfo := range response.Body {
+	res := proto.SubscribeResponse{}
 
-		si, ok := serverInfo.(map[string]interface{})
-		if !ok {
-			logx.Errorf("Subscribe serverInfo.(map[string]interface{}) failed ")
-			continue
-		}
-
-		serverInfos[serverId] = proto.ClusterServerInfo(si)
+	err = json.Unmarshal(response.Body, &res)
+	if err != nil {
+		return nil, err
 	}
 
-	res := proto.SubscribeResponse(serverInfos)
-	return &res, err
+	return &res, nil
 }
 
 func (m *MqttMasterClient) Record(ctx context.Context, in *proto.RecordRequest) (*proto.RecordResponse, error) {
@@ -114,6 +109,13 @@ func (m *MqttMasterClient) Record(ctx context.Context, in *proto.RecordRequest) 
 	return &proto.RecordResponse{}, err
 }
 
+func (m *MqttMasterClient) MonitorHandler(ctx context.Context, in *proto.MonitorHandlerRequest) (*proto.MonitorHandlerResponse, error) {
+
+	m.monitorHandler = in.CallBackHandler
+
+	return &proto.MonitorHandlerResponse{}, nil
+}
+
 func (m *MqttMasterClient) Connect() error {
 
 	token := m.socket.Connect()
@@ -124,6 +126,8 @@ func (m *MqttMasterClient) Connect() error {
 }
 
 func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Message) {
+
+	logx.Debugf("publishHandler,message: %s", message.Payload())
 
 	switch message.Topic() {
 
@@ -138,7 +142,7 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 		select {
 		case m.register <- res:
 		default:
-			logx.Errorf("topic_Register chan failed")
+			logx.Error("topic_Register chan failed")
 		}
 
 	case topic_Monitor:
@@ -157,6 +161,7 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 		}
 
 		if msg.Command != nil {
+			logx.Error("publishHandler Command, msg = ", tool.SimpleJson(msg))
 
 		} else if msg.RespId != nil {
 
@@ -169,16 +174,35 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 			select {
 			case mReq.resp <- msg:
 			default:
-				logx.Errorf("monitorRequest chan failed")
+				logx.Error("monitorRequest chan failed")
 			}
 
 		} else {
 
+			if m.monitorHandler == nil {
+
+				logx.Error("invalid monitorHandler, msg = ", tool.SimpleJson(msg))
+			}
+
+			type monitorMessageOnChangeBody struct {
+				Action proto.MonitorAction       `json:"action"`
+				Server []proto.ClusterServerInfo `json:"server"`
+			}
+
+			body := monitorMessageOnChangeBody{}
+
+			err := json.Unmarshal(msg.Body, &body)
+			if err != nil {
+				logx.Error("monitorMessageOnChangeBody Unmarshal failed")
+				return
+			}
+
+			m.monitorHandler(body.Action, body.Server)
 		}
 
 	default:
 
-		logx.Errorf("invalid topic")
+		logx.Error("invalid topic")
 
 	}
 
@@ -283,7 +307,10 @@ type monitorMessage struct {
 
 	Command *string `json:"command"` // command
 
-	Body map[string]interface{} `json:"body"` //  "body": {
+	Body json.RawMessage `json:"body"` // 不同返回值的
+
+	//Body map[string]interface{} `json:"body"` //  "body": {
+	//Body MonitorMessageBody `json:"body"` //  "body": {
 }
 
 type registerResponse struct {

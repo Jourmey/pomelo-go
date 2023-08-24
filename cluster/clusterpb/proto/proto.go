@@ -1,9 +1,16 @@
 package proto
 
+type MonitorAction string
+
 const (
 	Type_Monitor = "monitor"
 
 	ServerType_Connector = "connector"
+
+	MonitorAction_addServer     MonitorAction = "addServer"
+	MonitorAction_removeServer  MonitorAction = "removeServer"
+	MonitorAction_replaceServer MonitorAction = "replaceServer"
+	MonitorAction_startOve      MonitorAction = "startOver"
 )
 
 const (
@@ -59,4 +66,13 @@ type (
 	}
 
 	RecordResponse struct{}
+)
+
+// MonitorHandler 监听master中的集群变化
+type (
+	MonitorHandlerRequest struct {
+		CallBackHandler func(action MonitorAction, serverInfos []ClusterServerInfo)
+	}
+
+	MonitorHandlerResponse struct{}
 )
