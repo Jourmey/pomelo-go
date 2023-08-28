@@ -3,6 +3,7 @@ package clusterpb
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -13,7 +14,7 @@ import (
 )
 
 const (
-	topic_RPC = "RPC"
+	topic_RPC = "rpc"
 )
 
 type MqttMemberClient struct {
@@ -24,7 +25,9 @@ type MqttMemberClient struct {
 	pingTimeout    time.Duration // default 1s
 	requestTimeout time.Duration // default 10s
 
-	reqId  int
+	reqId      int
+	reqIdMutex sync.Mutex
+
 	socket mqtt.Client
 	resp   sync.Map // monitor memberRequest 请求列表
 }
@@ -36,56 +39,42 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 		Msg interface{} `json:"msg"`
 	}
 
-	type message struct {
-		Namespace  string        `json:"namespace"`
-		ServerType string        `json:"serverType"`
-		Service    string        `json:"service"`
-		Method     string        `json:"method"`
-		Args       []interface{} `json:"args"`
-	}
-
-	msg := message{
-		Namespace:  "user",
-		ServerType: "chat",
-		Service:    "chatRemote",
-		Method:     "add",
-		Args: []interface{}{
-			"stu1*kick_testsss",
-			"cluster-server-connector-0",
-			"kick_testsss",
-			true,
-			2,
-			1,
-			0,
-			"123",
-			"abc",
-			"2.9.8.7",
-			map[string]interface{}{
-				"uniqId":    "231FF2BB-BA09-598D-9EB6-3B0299D292E7ssss",
-				"rid":       "kick_testsss",
-				"rtype":     2,
-				"role":      1,
-				"ulevel":    0,
-				"uname":     "123",
-				"classid":   "abc",
-				"clientVer": "2.9.8.7",
-				"userVer":   "1.0",
-				"liveType":  "COMBINE_SMALL_CLASS_MODE"},
-			"0"},
-	}
+	m.reqIdMutex.Lock()
+	m.reqId++
+	var reqId = m.reqId
+	m.reqIdMutex.Unlock()
 
 	err := m.doSend(topic_RPC, rpcData{
-		ID:  1,
-		Msg: msg,
+		ID:  reqId,
+		Msg: in,
 	})
 
-	return &proto.RequestResponse{}, err
+	if err != nil {
+		return nil, err
+	}
 
-}
+	r := memberRequest{
+		resp:  make(chan rpcMessage),
+		reqId: reqId,
+	}
 
-func (m *MqttMemberClient) Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
-	//TODO implement me
-	panic("implement me")
+	m.resp.Store(reqId, r)
+
+	select {
+	case resp := <-r.resp:
+		res := proto.RequestResponse{}
+
+		err := json.Unmarshal(resp.Resp, &res)
+		if err != nil {
+			return nil, err
+		}
+
+		return &res, nil
+
+	case <-time.After(m.requestTimeout):
+		return nil, errors.New("timeout")
+	}
+
 }
 
 func (m *MqttMemberClient) Connect() error {
@@ -120,19 +109,13 @@ func (m *MqttMemberClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 		msg := rpcMessage{}
 
-		//// 这里接收的字符串居然是转义后的
-		//unescapedString, err := strconv.Unquote(string(message.Payload()))
-		//if err != nil {
-		//	return
-		//}
-
 		err := json.Unmarshal(message.Payload(), &msg)
 		if err != nil {
 			logx.Error("MqttMemberClient publishHandler json.Unmarshal failed ,err:", err)
 			return
 		}
 
-		req, ok := m.resp.LoadAndDelete(*msg.RespId)
+		req, ok := m.resp.LoadAndDelete(msg.Id)
 		if !ok {
 			logx.Error("MqttMemberClient publishHandler LoadAndDelete failed")
 			return
@@ -142,6 +125,7 @@ func (m *MqttMemberClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 		select {
 		case mReq.resp <- msg:
+			close(mReq.resp)
 		default:
 			logx.Error("monitorRequest chan failed")
 		}
@@ -178,7 +162,7 @@ func NewMqttMemberClient(advertiseAddr string) *MqttMemberClient {
 		AddBroker(advertiseAddr).
 		SetClientID(m.clientId).
 		SetCleanSession(false).
-		SetIgnoreVerifyConnACK(true)
+		SetIgnoreVerifyConnACK(true) // 这里对mqtt做了适配改造，pomelo的服务端不会回复connACK，正常逻辑导致连接失败
 
 	//opts.SetKeepAlive(m.keepaliveTimer)
 	opts.SetDefaultPublishHandler(m.publishHandler)
@@ -196,13 +180,6 @@ type memberRequest struct {
 }
 
 type rpcMessage struct {
-	RespId *int    `json:"respId"` //  "respId": 1,
-	Error  *string `json:"error"`  //  "error": null,
-
-	ReqId    *int    `json:"reqId"`    //  "reqId": 1,
-	ModuleId *string `json:"moduleId"` //  "moduleId": "__monitorwatcher__",
-
-	Command *string `json:"command"` // command
-
-	Body json.RawMessage `json:"body"` // 不同返回值的
+	Id   int             `json:"id"`   //  "respId": 1,
+	Resp json.RawMessage `json:"resp"` // 不同返回值的
 }

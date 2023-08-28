@@ -178,6 +178,7 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 			select {
 			case mReq.resp <- msg:
+				close(mReq.resp)
 			default:
 				logx.Error("monitorRequest chan failed")
 			}

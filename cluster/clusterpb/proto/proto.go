@@ -79,8 +79,15 @@ type (
 
 // Request 发送Request rpc请求
 type (
-	RequestRequest  struct{}
-	RequestResponse struct{}
+	RequestRequest struct {
+		Namespace  string        `json:"namespace"`
+		ServerType string        `json:"serverType"`
+		Service    string        `json:"service"`
+		Method     string        `json:"method"`
+		Args       []interface{} `json:"args"`
+	}
+
+	RequestResponse []interface{}
 )
 
 // Notify 发送Notify rpc请求

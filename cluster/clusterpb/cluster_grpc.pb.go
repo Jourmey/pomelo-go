@@ -22,8 +22,8 @@ type MasterClient interface {
 type MemberClient interface {
 	// Request 发送Request rpc请求
 	Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
-	// Notify 发送Notify rpc请求
-	Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
+	//// Notify 发送Notify rpc请求
+	//Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
 }
 
 //type MemberServer interface {
