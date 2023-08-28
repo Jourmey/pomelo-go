@@ -13,6 +13,10 @@ var (
 )
 
 func InitMqttMemberClient() {
+	var (
+		advertiseAddr = "127.0.0.1:10061"
+	)
+
 	c := NewMqttMemberClient(advertiseAddr)
 
 	for {
@@ -38,5 +42,7 @@ func Test_MqttMemberClient_Request(t *testing.T) {
 	}
 
 	t.Log(res)
+
+	select {}
 
 }

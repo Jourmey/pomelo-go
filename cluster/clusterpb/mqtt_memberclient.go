@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/zeromicro/go-zero/core/logx"
 	"pomelo-go/cluster/clusterpb/proto"
-	"sync"
-	"time"
 )
 
 const (
@@ -29,8 +30,57 @@ type MqttMemberClient struct {
 }
 
 func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
-	//TODO implement me
-	panic("implement me")
+
+	type rpcData struct {
+		ID  int         `json:"id"`
+		Msg interface{} `json:"msg"`
+	}
+
+	type message struct {
+		Namespace  string        `json:"namespace"`
+		ServerType string        `json:"serverType"`
+		Service    string        `json:"service"`
+		Method     string        `json:"method"`
+		Args       []interface{} `json:"args"`
+	}
+
+	msg := message{
+		Namespace:  "user",
+		ServerType: "chat",
+		Service:    "chatRemote",
+		Method:     "add",
+		Args: []interface{}{
+			"stu1*kick_testsss",
+			"cluster-server-connector-0",
+			"kick_testsss",
+			true,
+			2,
+			1,
+			0,
+			"123",
+			"abc",
+			"2.9.8.7",
+			map[string]interface{}{
+				"uniqId":    "231FF2BB-BA09-598D-9EB6-3B0299D292E7ssss",
+				"rid":       "kick_testsss",
+				"rtype":     2,
+				"role":      1,
+				"ulevel":    0,
+				"uname":     "123",
+				"classid":   "abc",
+				"clientVer": "2.9.8.7",
+				"userVer":   "1.0",
+				"liveType":  "COMBINE_SMALL_CLASS_MODE"},
+			"0"},
+	}
+
+	err := m.doSend(topic_RPC, rpcData{
+		ID:  1,
+		Msg: msg,
+	})
+
+	return &proto.RequestResponse{}, err
+
 }
 
 func (m *MqttMemberClient) Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
@@ -45,6 +95,19 @@ func (m *MqttMemberClient) Connect() error {
 	token.Wait()
 
 	return token.Error()
+}
+
+func (m *MqttMemberClient) doSend(topic string, msg interface{}) error {
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		return err
+	}
+
+	if pToken := m.socket.Publish(topic, 0, false, payload); pToken.Wait() && pToken.Error() != nil {
+		return pToken.Error()
+	}
+
+	return nil
 }
 
 func (m *MqttMemberClient) publishHandler(client mqtt.Client, message mqtt.Message) {
@@ -113,9 +176,11 @@ func NewMqttMemberClient(advertiseAddr string) *MqttMemberClient {
 
 	opts := mqtt.NewClientOptions().
 		AddBroker(advertiseAddr).
-		SetClientID(m.clientId)
+		SetClientID(m.clientId).
+		SetCleanSession(false).
+		SetIgnoreVerifyConnACK(true)
 
-	opts.SetKeepAlive(m.keepaliveTimer)
+	//opts.SetKeepAlive(m.keepaliveTimer)
 	opts.SetDefaultPublishHandler(m.publishHandler)
 	opts.SetPingTimeout(m.pingTimeout)
 

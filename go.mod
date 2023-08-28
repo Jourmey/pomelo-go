@@ -17,6 +17,8 @@ require (
 	go.opentelemetry.io/otel/trace v1.14.0 // indirect
 	go.uber.org/automaxprocs v1.5.3 // indirect
 	golang.org/x/net v0.14.0 // indirect
-	golang.org/x/sync v0.2.0 // indirect
+	golang.org/x/sync v0.3.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
 )
+
+replace github.com/eclipse/paho.mqtt.golang v1.4.3 => github.com/Jourmey/paho.mqtt.golang v0.0.0-20230828083326-33d01f1cc915
