@@ -13,13 +13,15 @@ import (
 
 // Options contains some configurations for current node
 type Options struct {
-	IsMaster      bool
-	ServerId      string                  // node服务id名称
-	AdvertiseAddr string                  // node服务对应的master地址
-	ServerInfo    proto.ClusterServerInfo // node 服务信息用于向master注册
-	RetryInterval time.Duration           // master 重试间隔 default 5*time.sec
-	RetryTimes    int                     // master 重试间隔 default 60次
-	Token         string                  // master 通信token
+	IsMaster   bool
+	ServerId   string                  // node服务id名称
+	ServerInfo proto.ClusterServerInfo // node 服务信息用于向master注册
+
+	AdvertiseAddr string        // node服务对应的master地址
+	RetryInterval time.Duration // master 重试间隔 default 3*time.sec
+	RetryTimes    int           // master 重试间隔 default 10次
+
+	Token string // master 通信token
 
 	Components *component.Components
 	//RemoteServiceRoute CustomerRemoteServiceRoute

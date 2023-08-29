@@ -9,6 +9,7 @@ const (
 
 	ServerType_Connector = "connector"
 	ServerType_Chat      = "chat"
+	ServerType_Recover   = "recover"
 
 	MonitorAction_addServer     MonitorAction = "addServer"
 	MonitorAction_removeServer  MonitorAction = "removeServer"
