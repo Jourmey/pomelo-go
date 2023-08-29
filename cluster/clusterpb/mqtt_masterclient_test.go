@@ -12,34 +12,30 @@ import (
 
 var (
 	advertiseAddr = "localhost:3005"
-	serverId      = "cluster-server-connector-998"
+	serverId      = "cluster-server-connector-996"
 
 	request = &proto.RegisterRequest{
 		ServerInfo: proto.ClusterServerInfo{
-			Id:         serverId,
-			Type:       proto.Type_Monitor,
-			ServerType: proto.ServerType_Connector,
-			Pid:        99,
-			Info: map[string]interface{}{
-				"env":           "local",
-				"host":          "127.0.0.1",
-				"port":          4061,
-				"clientPort":    3061,
-				"wssPort":       80,
-				"frontend":      "true",
-				"channelType":   2,
-				"cloudType":     1,
-				"clusterCount":  1,
-				"restart-force": "true",
-				"recover":       "true",
-				"serverType":    proto.ServerType_Connector,
-				"id":            serverId,
-			},
+			"type":          proto.Type_Monitor,
+			"pid":           99,
+			"env":           "local",
+			"host":          "127.0.0.1",
+			"port":          4061,
+			"clientPort":    3061,
+			"wssPort":       80,
+			"frontend":      "true",
+			"channelType":   2,
+			"cloudType":     1,
+			"clusterCount":  1,
+			"restart-force": "true",
+			"recover":       "true",
+			"serverType":    proto.ServerType_Chat,
+			"id":            serverId,
 		},
 		Token: "agarxhqb98rpajloaxn34ga8xrunpagkjwlaw3ruxnpaagl29w4rxn",
 	}
 
-	client MasterClient
+	client MasterAgent
 )
 
 func Init() {
@@ -110,7 +106,7 @@ func Test_MqttMasterClient_Record(t *testing.T) {
 func Test_MqttMasterClient_MonitorHandler(t *testing.T) {
 
 	res, err := client.MonitorHandler(context.Background(), &proto.MonitorHandlerRequest{
-		CallBackHandler: func(action proto.MonitorAction, serverInfos []*proto.ClusterServerInfo) {
+		CallBackHandler: func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo) {
 			t.Log(action)
 			t.Log(serverInfos)
 		},

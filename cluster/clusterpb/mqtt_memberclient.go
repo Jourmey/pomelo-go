@@ -34,7 +34,7 @@ type MqttMemberClient struct {
 
 func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
 
-	type rpcData struct {
+	type rpcRequestData struct {
 		ID  int         `json:"id"`
 		Msg interface{} `json:"msg"`
 	}
@@ -44,7 +44,7 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 	var reqId = m.reqId
 	m.reqIdMutex.Unlock()
 
-	err := m.doSend(topic_RPC, rpcData{
+	err := m.doSend(topic_RPC, rpcRequestData{
 		ID:  reqId,
 		Msg: in,
 	})
@@ -77,6 +77,22 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 
 }
 
+func (m *MqttMemberClient) Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
+	type rpcNotifyData struct {
+		Msg interface{} `json:"msg"`
+	}
+
+	err := m.doSend(topic_RPC, rpcNotifyData{
+		Msg: in,
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &proto.NotifyResponse{}, nil
+}
+
 func (m *MqttMemberClient) Connect() error {
 
 	token := m.socket.Connect()
@@ -86,11 +102,17 @@ func (m *MqttMemberClient) Connect() error {
 	return token.Error()
 }
 
+func (m *MqttMemberClient) Close() error {
+	return nil
+}
+
 func (m *MqttMemberClient) doSend(topic string, msg interface{}) error {
 	payload, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
+
+	logx.Debugf("send message: %s", payload)
 
 	if pToken := m.socket.Publish(topic, 0, false, payload); pToken.Wait() && pToken.Error() != nil {
 		return pToken.Error()
@@ -101,7 +123,7 @@ func (m *MqttMemberClient) doSend(topic string, msg interface{}) error {
 
 func (m *MqttMemberClient) publishHandler(client mqtt.Client, message mqtt.Message) {
 
-	logx.Debugf("publishHandler,message: %s", message.Payload())
+	logx.Debugf("receive message: %s", message.Payload())
 
 	switch message.Topic() {
 

@@ -3,6 +3,7 @@ package cluster
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/zeromicro/go-zero/core/logx"
 	"pomelo-go/cluster/clusterpb"
 	"pomelo-go/cluster/clusterpb/proto"
@@ -30,6 +31,7 @@ type Node struct {
 
 	handler      *LocalHandler          // 处理本地或远程Handler调用
 	masterClient clusterpb.MasterClient // 与master通信的客户端 对应pomelo的monitor
+	rpcClient    *rpcClient
 	//server  *grpcServer            // rpc服务端
 
 	//sessions map[int64]*session.Session
@@ -39,7 +41,10 @@ func (n *Node) Startup() error {
 	if n.ServiceAddr == "" {
 		return errors.New("service address cannot be empty in master node")
 	}
+
+	n.rpcClient = newRPCClient()
 	n.handler = NewHandler(n)
+
 	components := n.Components.List()
 	for _, c := range components {
 		err := n.handler.register(c.Comp, c.Opts)
@@ -65,6 +70,11 @@ func (n *Node) Startup() error {
 
 func (n *Node) Handler() *LocalHandler {
 	return n.handler
+}
+
+// RemoteProcess 远程调用
+func (n *Node) RemoteProcess(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
+	return n.handler.remoteProcess(ctx, in)
 }
 
 func (n *Node) Shutdown() {
@@ -105,12 +115,18 @@ func (n *Node) initNode() error {
 	}
 
 	_, err := mqttMasterClient.MonitorHandler(context.Background(), &proto.MonitorHandlerRequest{
-		CallBackHandler: func(action proto.MonitorAction, serverInfos []*proto.ClusterServerInfo) { // 收到master推送的消息变更
+		CallBackHandler: func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo) { // 收到master推送的消息变更
 
 			switch action {
 			case proto.MonitorAction_addServer:
 				for i := 0; i < len(serverInfos); i++ {
-					n.handler.addRemoteService(serverInfos[i])
+
+					remoteService, err := transformRemoteServiceInfo(serverInfos[i])
+					if err != nil {
+						logx.Error("transformRemoteServiceInfo failed,err:", err)
+						continue
+					}
+					n.handler.addRemoteService(remoteService)
 				}
 
 			case proto.MonitorAction_removeServer:
@@ -142,7 +158,19 @@ func (n *Node) initNode() error {
 	})
 
 	// 初始化handler
-	n.handler.initRemoteService(*subscribeResponse)
+	rs := make([]RemoteServiceInfo, 0, len(*subscribeResponse))
+	for _, info := range *subscribeResponse {
+
+		remoteService, err := transformRemoteServiceInfo(info)
+		if err != nil {
+			logx.Error("transformRemoteServiceInfo failed,err:", err)
+			continue
+		}
+
+		rs = append(rs, remoteService)
+	}
+
+	n.handler.initRemoteService(rs)
 
 	n.masterClient = mqttMasterClient
 	return nil
@@ -150,5 +178,38 @@ func (n *Node) initNode() error {
 
 // Enable current server accept connection
 func (n *Node) listenAndServe() {
+
+}
+
+func transformRemoteServiceInfo(info proto.ClusterServerInfo) (res RemoteServiceInfo, err error) {
+
+	var (
+		host       string
+		port       int
+		serverType string
+	)
+
+	if v, ok := info["host"]; !ok {
+		return RemoteServiceInfo{}, errors.New("invalid host")
+	} else {
+		host = v.(string)
+	}
+
+	if v, ok := info["port"]; !ok {
+		return RemoteServiceInfo{}, errors.New("invalid port")
+	} else {
+		port = int(v.(float64))
+	}
+	if v, ok := info["serverType"]; !ok {
+		return RemoteServiceInfo{}, errors.New("invalid serverType")
+	} else {
+		serverType = v.(string)
+	}
+
+	return RemoteServiceInfo{
+		ClusterServerInfo: info,
+		ServerType:        serverType,
+		ServiceAddr:       fmt.Sprintf("%s:%d", host, port),
+	}, nil
 
 }

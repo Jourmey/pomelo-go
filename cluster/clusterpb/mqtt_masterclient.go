@@ -42,7 +42,7 @@ type MqttMasterClient struct {
 	reqId          int
 	socket         mqtt.Client
 	monitorResp    sync.Map // monitor request 请求列表
-	monitorHandler func(action proto.MonitorAction, serverInfos []*proto.ClusterServerInfo)
+	monitorHandler func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo)
 
 	register  chan registerResponse
 	subscribe chan proto.ClusterServerInfo
@@ -50,17 +50,12 @@ type MqttMasterClient struct {
 
 func (m *MqttMasterClient) Register(ctx context.Context, in *proto.RegisterRequest) (*proto.RegisterResponse, error) {
 
-	req := make(map[string]interface{}, len(in.ServerInfo.Info)+10)
+	req := make(map[string]interface{}, len(in.ServerInfo)+1)
 
-	for s, i := range in.ServerInfo.Info {
+	for s, i := range in.ServerInfo {
 		req[s] = i
 	}
 
-	req["id"] = in.ServerInfo.Id
-	req["type"] = in.ServerInfo.Type
-	req["serverType"] = in.ServerInfo.ServerType
-	req["pid"] = in.ServerInfo.Pid
-	req["info"] = in.ServerInfo.Info
 	req["token"] = in.Token
 
 	err := m.doSend(topic_Register, req)
@@ -130,6 +125,10 @@ func (m *MqttMasterClient) Connect() error {
 	return token.Error()
 }
 
+func (m *MqttMasterClient) Close() error {
+	return nil
+}
+
 func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Message) {
 
 	logx.Debugf("publishHandler,message: %s", message.Payload())
@@ -191,8 +190,8 @@ func (m *MqttMasterClient) publishHandler(client mqtt.Client, message mqtt.Messa
 			}
 
 			type monitorMessageOnChangeBody struct {
-				Action proto.MonitorAction        `json:"action"`
-				Server []*proto.ClusterServerInfo `json:"server"`
+				Action proto.MonitorAction       `json:"action"`
+				Server []proto.ClusterServerInfo `json:"server"`
 			}
 
 			body := monitorMessageOnChangeBody{}

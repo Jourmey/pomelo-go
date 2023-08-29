@@ -1,11 +1,14 @@
 package proto
 
+import "encoding/json"
+
 type MonitorAction string
 
 const (
 	Type_Monitor = "monitor"
 
 	ServerType_Connector = "connector"
+	ServerType_Chat      = "chat"
 
 	MonitorAction_addServer     MonitorAction = "addServer"
 	MonitorAction_removeServer  MonitorAction = "removeServer"
@@ -29,15 +32,15 @@ const (
 )
 
 // ClusterServerInfo 集群服务信息
-//type ClusterServerInfo map[string]interface{}
+type ClusterServerInfo map[string]interface{}
 
-type ClusterServerInfo struct {
-	Id         string                 `json:"id"`
-	Type       string                 `json:"type"`
-	ServerType string                 `json:"serverType"`
-	Pid        int                    `json:"pid"`
-	Info       map[string]interface{} `json:"info"`
-}
+//type ClusterServerInfo struct {
+//	Id         string                 `json:"id"`
+//	Type       string                 `json:"type"`
+//	ServerType string                 `json:"serverType"`
+//	Pid        int                    `json:"pid"`
+//	Info       map[string]interface{} `json:"info"`
+//}
 
 // Register 向master注册服务信息
 type (
@@ -56,7 +59,7 @@ type (
 		Id string `json:"id"`
 	}
 
-	SubscribeResponse map[string]*ClusterServerInfo // 集群内其他服务信息
+	SubscribeResponse map[string]ClusterServerInfo // 集群内其他服务信息
 )
 
 // Record 通知master启动完毕
@@ -71,7 +74,7 @@ type (
 // MonitorHandler 监听master中的集群变化
 type (
 	MonitorHandlerRequest struct {
-		CallBackHandler func(action MonitorAction, serverInfos []*ClusterServerInfo)
+		CallBackHandler func(action MonitorAction, serverInfos []ClusterServerInfo)
 	}
 
 	MonitorHandlerResponse struct{}
@@ -80,11 +83,11 @@ type (
 // Request 发送Request rpc请求
 type (
 	RequestRequest struct {
-		Namespace  string        `json:"namespace"`
-		ServerType string        `json:"serverType"`
-		Service    string        `json:"service"`
-		Method     string        `json:"method"`
-		Args       []interface{} `json:"args"`
+		Namespace  string          `json:"namespace"`
+		ServerType string          `json:"serverType"`
+		Service    string          `json:"service"`
+		Method     string          `json:"method"`
+		Args       json.RawMessage `json:"args"`
 	}
 
 	RequestResponse []interface{}
