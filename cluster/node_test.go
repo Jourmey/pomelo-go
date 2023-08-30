@@ -34,28 +34,29 @@ func TestNode_Startup(t *testing.T) {
 	c := &component.Components{}
 	c.Register(&MyComponent{})
 
-	serverid := "cluster-server-chat-996"
+	serverid := "cluster-server-record-996"
 
 	opt := Options{
 		IsMaster:      false,
 		ServerId:      serverid,
 		AdvertiseAddr: "localhost:3005",
 		ServerInfo: proto.ClusterServerInfo{
-			"type":          proto.Type_Monitor,
-			"pid":           99,
-			"env":           "local",
-			"host":          "127.0.0.1",
-			"port":          4061,
-			"clientPort":    3061,
-			"wssPort":       80,
-			"frontend":      "true",
-			"channelType":   2,
-			"cloudType":     1,
-			"clusterCount":  1,
-			"restart-force": "true",
-			"recover":       "true",
-			"serverType":    proto.ServerType_Chat,
-			"id":            serverid,
+			"serverType": proto.ServerType_Recover,
+			"id":         serverid,
+			"type":       proto.Type_Monitor,
+			"pid":        99,
+			"info": map[string]interface{}{
+				"serverType": proto.ServerType_Recover,
+				"id":         serverid,
+				"env":        "local",
+				"host":       "127.0.0.1",
+				"port":       8081,
+
+				"channelType":   2,
+				"cloudType":     1,
+				"clusterCount":  1,
+				"restart-force": "true",
+			},
 		},
 		RetryInterval: 5 * time.Second,
 		RetryTimes:    60,

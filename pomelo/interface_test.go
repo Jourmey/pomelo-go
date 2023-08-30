@@ -19,17 +19,22 @@ func Test_Listen(t *testing.T) {
 	Listen("127.0.0.1:8081", // 本机rpc服务addr
 		WithServerId(serverid),
 		WithServerInfo(proto.ClusterServerInfo{
-			"type":          proto.Type_Monitor,
-			"pid":           99,
-			"env":           "local",
-			"host":          "127.0.0.1",
-			"port":          8081,
-			"channelType":   2,
-			"cloudType":     1,
-			"clusterCount":  1,
-			"restart-force": "true",
-			"serverType":    proto.ServerType_Recover,
-			"id":            serverid,
+			"serverType": proto.ServerType_Recover,
+			"id":         serverid,
+			"type":       proto.Type_Monitor,
+			"pid":        99,
+			"info": map[string]interface{}{
+				"serverType": proto.ServerType_Recover,
+				"id":         serverid,
+				"env":        "local",
+				"host":       "127.0.0.1",
+				"port":       8081,
+
+				"channelType":   2,
+				"cloudType":     1,
+				"clusterCount":  1,
+				"restart-force": "true",
+			},
 		}),
 		WithToken("agarxhqb98rpajloaxn34ga8xrunpagkjwlaw3ruxnpaagl29w4rxn"),
 		WithAdvertiseAddr("localhost:3005"), // 集群master服务addr

@@ -12,25 +12,26 @@ import (
 
 var (
 	advertiseAddr = "localhost:3005"
-	serverId      = "cluster-server-connector-996"
+	serverId      = "cluster-server-connector-994"
 
 	request = &proto.RegisterRequest{
 		ServerInfo: proto.ClusterServerInfo{
-			"type":          proto.Type_Monitor,
-			"pid":           99,
-			"env":           "local",
-			"host":          "127.0.0.1",
-			"port":          4061,
-			"clientPort":    3061,
-			"wssPort":       80,
-			"frontend":      "true",
-			"channelType":   2,
-			"cloudType":     1,
-			"clusterCount":  1,
-			"restart-force": "true",
-			"recover":       "true",
-			"serverType":    proto.ServerType_Chat,
-			"id":            serverId,
+			"serverType": proto.ServerType_Chat,
+			"id":         serverId,
+			"type":       proto.Type_Monitor,
+			"pid":        99,
+			"info": map[string]interface{}{
+				"serverType": proto.ServerType_Chat,
+				"id":         serverId,
+				"env":        "local",
+				"host":       "127.0.0.1",
+				"port":       4061,
+
+				"channelType":   2,
+				"cloudType":     1,
+				"clusterCount":  1,
+				"restart-force": "true",
+			},
 		},
 		Token: "agarxhqb98rpajloaxn34ga8xrunpagkjwlaw3ruxnpaagl29w4rxn",
 	}

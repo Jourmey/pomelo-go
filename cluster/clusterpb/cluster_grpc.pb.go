@@ -16,8 +16,12 @@ type MasterClient interface {
 	MonitorHandler(ctx context.Context, in *proto.MonitorHandlerRequest) (*proto.MonitorHandlerResponse, error)
 }
 
-//type MasterServer interface {
-//}
+type MasterServer interface {
+	// RequestHandler 处理Request rpc请求
+	RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
+	// NotifyHandler 处理Notify rpc请求
+	NotifyHandler(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
+}
 
 type MemberClient interface {
 	// Request 发送Request rpc请求
