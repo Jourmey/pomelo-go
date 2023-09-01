@@ -35,14 +35,6 @@ const (
 // ClusterServerInfo 集群服务信息
 type ClusterServerInfo map[string]interface{}
 
-//type ClusterServerInfo struct {
-//	Id         string                 `json:"id"`
-//	Type       string                 `json:"type"`
-//	ServerType string                 `json:"serverType"`
-//	Pid        int                    `json:"pid"`
-//	Info       map[string]interface{} `json:"info"`
-//}
-
 // Register 向master注册服务信息
 type (
 	RegisterRequest struct {
@@ -98,6 +90,7 @@ type (
 
 // Notify 发送Notify rpc请求
 type (
-	NotifyRequest  RpcMessage
+	NotifyRequest RpcMessage
+
 	NotifyResponse struct{}
 )

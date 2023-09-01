@@ -26,11 +26,6 @@ const (
 	pro_fail = -1
 )
 
-type monitorRequest struct {
-	resp  chan monitorMessage
-	reqId int
-}
-
 type MqttMasterClient struct {
 	clientId string // = 'MQTT_ADMIN_' + Date.now();
 
@@ -300,6 +295,11 @@ func NewMqttMasterClient(advertiseAddr string) MasterClientAgent {
 	m.socket = socket
 
 	return m
+}
+
+type monitorRequest struct {
+	resp  chan monitorMessage
+	reqId int
 }
 
 type monitorMessage struct {

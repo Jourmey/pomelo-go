@@ -11,7 +11,6 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/timex"
 	"pomelo-go/cluster/clusterpb/proto"
-	"pomelo-go/tool"
 )
 
 type MqttMemberServer struct {
@@ -181,7 +180,7 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 
 		if m.Id == nil {
 
-			logx.Debugf("[Notify] -- %s.%s.%s.%s - request:%s", m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, tool.SimpleJson(m.Msg.Args))
+			logx.Debugf("[Notify] -- %s.%s.%s.%s - request:%s", m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, string(m.Msg.Args))
 
 			err := h.mqttMasterServer.notifyHandler(m)
 			if err != nil {
@@ -193,7 +192,7 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 
 			id := *m.Id
 
-			logx.Debugf("[Request] %d -- %s.%s.%s.%s - request:%s", id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, tool.SimpleJson(m.Msg.Args))
+			logx.Debugf("[Request] %d -- %s.%s.%s.%s - request:%s", id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, string(m.Msg.Args))
 
 			pkg, err := h.mqttMasterServer.publishHandler(m)
 
@@ -214,7 +213,7 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 				return
 			}
 
-			logx.Debugf("[Request OK] %d %s -- %s - response:%s", id, duration, router, tool.SimpleJson(pkg.Payload))
+			logx.Debugf("[Request OK] %d %s -- %s - response:%s", id, duration, router, string(pkg.Payload))
 		}
 
 	case packets.Puback:

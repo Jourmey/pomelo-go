@@ -54,7 +54,8 @@ func Listen(addr string, opts ...Option) {
 
 	err := node.Startup()
 	if err != nil {
-		logx.Infof("Node startup failed: %v", err)
+		logx.Errorf("Node startup failed: %v", err)
+		panic(err)
 	}
 	currentNode = node
 
