@@ -160,7 +160,7 @@ func (m *MqttMemberClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 }
 
-func NewMqttMemberClient(advertiseAddr string) *MqttMemberClient {
+func NewMqttMemberClient(advertiseAddr string) MemberClientAgent {
 
 	var (
 		clientId       = fmt.Sprintf("MQTT_RPC_%d", time.Now().UnixMilli())

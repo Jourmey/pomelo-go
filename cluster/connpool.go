@@ -9,7 +9,7 @@ import (
 
 type connPool struct {
 	index uint32
-	v     []clusterpb.MemberAgent
+	v     []clusterpb.MemberClientAgent
 }
 
 type rpcClient struct {
@@ -21,7 +21,7 @@ type rpcClient struct {
 func newConnArray(maxSize uint, addr string) (*connPool, error) {
 	a := &connPool{
 		index: 0,
-		v:     make([]clusterpb.MemberAgent, maxSize),
+		v:     make([]clusterpb.MemberClientAgent, maxSize),
 	}
 	if err := a.init(addr); err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (a *connPool) init(addr string) error {
 	return nil
 }
 
-func (a *connPool) Get() clusterpb.MemberAgent {
+func (a *connPool) Get() clusterpb.MemberClientAgent {
 	next := atomic.AddUint32(&a.index, 1) % uint32(len(a.v))
 	return a.v[next]
 }

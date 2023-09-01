@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	memberClient MemberAgent
+	memberClient MemberClientAgent
 )
 
 func InitMqttMemberClient() {

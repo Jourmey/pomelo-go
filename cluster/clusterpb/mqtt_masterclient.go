@@ -266,7 +266,7 @@ func (m *MqttMasterClient) doSend(topic string, msg interface{}) error {
 	return nil
 }
 
-func NewMqttMasterClient(advertiseAddr string) *MqttMasterClient {
+func NewMqttMasterClient(advertiseAddr string) MasterClientAgent {
 
 	var (
 		clientId       = fmt.Sprintf("MQTT_ADMIN_%d", time.Now().UnixMilli())

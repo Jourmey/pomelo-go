@@ -17,10 +17,6 @@ type MasterClient interface {
 }
 
 type MasterServer interface {
-	// RequestHandler 处理Request rpc请求
-	RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
-	// NotifyHandler 处理Notify rpc请求
-	NotifyHandler(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
 }
 
 type MemberClient interface {
@@ -31,18 +27,28 @@ type MemberClient interface {
 }
 
 type MemberServer interface {
+	// RequestHandler 处理Request rpc请求
+	RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
+	// NotifyHandler 处理Notify rpc请求
+	NotifyHandler(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
 }
 
-type MasterAgent interface {
+type MasterClientAgent interface {
 	MasterClient
 
 	Connect() error
 	Close() error
 }
 
-type MemberAgent interface {
+type MemberClientAgent interface {
 	MemberClient
 
 	Connect() error
 	Close() error
 }
+
+//type MemberServerAgent interface {
+//	MemberServer
+//
+//	Listen(advertiseAddr string) error
+//}

@@ -36,7 +36,7 @@ var (
 		Token: "agarxhqb98rpajloaxn34ga8xrunpagkjwlaw3ruxnpaagl29w4rxn",
 	}
 
-	client MasterAgent
+	client MasterClientAgent
 )
 
 func Init() {

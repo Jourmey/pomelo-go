@@ -3,6 +3,7 @@ package clusterpb
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/mochi-mqtt/server/v2/packets"
@@ -10,28 +11,22 @@ import (
 	"pomelo-go/cluster/clusterpb/proto"
 )
 
-type MqttMasterServer struct {
+type MqttMemberServer struct {
+	memberServer MemberServer
+
 	server *mqtt.Server
 }
 
-func (m *MqttMasterServer) RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MqttMasterServer) NotifyHandler(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
-	//TODO implement me
-	panic("implement me")
-}
-
-func (m *MqttMasterServer) Listener(advertiseAddr string) error {
+func (m *MqttMemberServer) Listen(advertiseAddr string) error {
 	server := mqtt.New(nil)
 	m.server = server
 
 	ws := listeners.NewTCP("t1", advertiseAddr, nil)
 	_ = ws
 
-	err := server.AddHook(new(ExampleHook), nil)
+	err := server.AddHook(&hook{
+		mqttMasterServer: m,
+	}, nil)
 	if err != nil {
 		return err
 	}
@@ -49,22 +44,64 @@ func (m *MqttMasterServer) Listener(advertiseAddr string) error {
 	return nil
 }
 
-func NewMqttMasterServer() *MqttMasterServer {
+func (m *MqttMemberServer) PublishHandler(message rpcMessage) {
 
-	return &MqttMasterServer{
-		server: nil,
+	if message.Id == 0 {
+
+	} else {
+
+		requestRequest := proto.RequestRequest{}
+
+		err := json.Unmarshal(message.Resp, &requestRequest)
+		if err != nil {
+			logx.Errorf("RequestRequest json.Unmarshal failed ,err:%s", err)
+			return
+		}
+
+		var response interface{}
+
+		requestResponse, err := m.memberServer.RequestHandler(context.Background(), &requestRequest)
+		if err != nil {
+			response = err.Error()
+		} else {
+			response = requestResponse
+		}
+
+		data, err := json.Marshal(response)
+		if err != nil {
+			logx.Errorf("server.Publish err response Marshal failed ,err:%s", err)
+			return
+		}
+
+		err = m.server.Publish("rpc", data, false, 0)
+		if err != nil {
+			logx.Errorf("server.Publish err response failed ,err:%s", err)
+			return
+		}
+
+	}
+
+}
+
+func NewMqttMasterServer(memberServer MemberServer) *MqttMemberServer {
+
+	return &MqttMemberServer{
+		memberServer: memberServer,
+		server:       nil,
 	}
 }
 
-type ExampleHook struct {
+type hook struct {
+	mqttMasterServer *MqttMemberServer
+
 	mqtt.HookBase
 }
 
-func (h *ExampleHook) ID() string {
-	return "events-example"
+func (h *hook) ID() string {
+	return "mqtt_masterServer"
 }
 
-func (h *ExampleHook) Provides(b byte) bool {
+func (h *hook) Provides(b byte) bool {
 	return bytes.Contains([]byte{
 		mqtt.OnConnect,
 		mqtt.OnConnectAuthenticate,
@@ -73,12 +110,6 @@ func (h *ExampleHook) Provides(b byte) bool {
 		mqtt.OnSubscribe,
 		mqtt.OnSubscribed,
 		mqtt.OnUnsubscribed,
-		mqtt.OnSelectSubscribers,
-
-		//mqtt.OnPacketRead,
-		//mqtt.OnPacketEncode,
-		//mqtt.OnPacketSent,
-		mqtt.OnPacketProcessed,
 
 		mqtt.OnPacketProcessed,
 
@@ -87,51 +118,41 @@ func (h *ExampleHook) Provides(b byte) bool {
 	}, []byte{b})
 }
 
-func (h *ExampleHook) Init(config any) error {
-	h.Log.Info().Msg("initialised")
+func (h *hook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
+	h.Log.Info().Str("client", cl.ID).Msgf("client connected")
 	return nil
 }
 
-func (h *ExampleHook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
+func (h *hook) OnConnectAuthenticate(cl *mqtt.Client, pk packets.Packet) bool {
 	// 全部放行
 	logx.Infof("OnConnectAuthenticate , id:%s", cl.ID)
 	return true
 }
 
-func (h *ExampleHook) OnConnect(cl *mqtt.Client, pk packets.Packet) error {
-	h.Log.Info().Str("client", cl.ID).Msgf("client connected")
-	return nil
-}
-
-func (h *ExampleHook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
+func (h *hook) OnDisconnect(cl *mqtt.Client, err error, expire bool) {
 	h.Log.Info().Str("client", cl.ID).Bool("expire", expire).Err(err).Msg("client disconnected")
 }
 
-func (h *ExampleHook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
+func (h *hook) OnSubscribe(cl *mqtt.Client, pk packets.Packet) packets.Packet {
 	logx.Infof("OnSubscribe , id:%s", cl.ID)
 	return pk
 }
 
-func (h *ExampleHook) OnSubscribed(cl *mqtt.Client, pk packets.Packet, reasonCodes []byte) {
+func (h *hook) OnSubscribed(cl *mqtt.Client, pk packets.Packet, reasonCodes []byte) {
 	h.Log.Info().Str("client", cl.ID).Interface("filters", pk.Filters).Msgf("subscribed qos=%v", reasonCodes)
 
 }
 
-func (h *ExampleHook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
+func (h *hook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
 	h.Log.Info().Str("client", cl.ID).Interface("filters", pk.Filters).Msg("unsubscribed")
 }
 
-func (h *ExampleHook) OnSelectSubscribers(subs *mqtt.Subscribers, pk packets.Packet) *mqtt.Subscribers {
-	logx.Infof("OnSelectSubscribers")
-	return subs
-}
-
-// triggers after a packet from the client been processed (handled)
-func (h *ExampleHook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) {
+func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) {
 	if err != nil {
 		logx.Errorf("OnPacketProcessed failed , id:%s , err:%s", cl.ID, err)
+
 	} else {
-		logx.Infof("OnPacketProcessed , id:%s, pk:%+v,err:%s", cl.ID, pk, err)
+		logx.Infof("OnPacketProcessed packet id:%s, pk:%+v,err:%s", cl.ID, pk, err)
 	}
 
 	switch pk.FixedHeader.Type {
@@ -146,7 +167,16 @@ func (h *ExampleHook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err 
 		logx.Infof("OnPacketProcessed Connack , id:%s, payload:%s", cl.ID, pk.Payload)
 
 	case packets.Publish:
-		logx.Infof("OnPacketProcessed Publish , id:%s, payload:%s", cl.ID, pk.Payload)
+
+		m := rpcMessage{}
+
+		err := json.Unmarshal(pk.Payload, &m)
+		if err != nil {
+			logx.Errorf("Publish json.Unmarshal failed ,err:%s", err)
+			return
+		}
+
+		h.mqttMasterServer.PublishHandler(m)
 
 	case packets.Puback:
 		logx.Infof("OnPacketProcessed Puback , id:%s, payload:%s", cl.ID, pk.Payload)
@@ -194,7 +224,7 @@ func (h *ExampleHook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err 
 
 }
 
-func (h *ExampleHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
+func (h *hook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Packet, error) {
 	h.Log.Info().Str("client", cl.ID).Str("payload", string(pk.Payload)).Msg("received from client")
 
 	pkx := pk
@@ -206,6 +236,6 @@ func (h *ExampleHook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Pac
 	return pkx, nil
 }
 
-func (h *ExampleHook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
+func (h *hook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
 	h.Log.Info().Str("client", cl.ID).Str("payload", string(pk.Payload)).Msg("published to client")
 }
