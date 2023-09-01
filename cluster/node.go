@@ -8,6 +8,7 @@ import (
 	"pomelo-go/cluster/clusterpb"
 	"pomelo-go/cluster/clusterpb/proto"
 	"pomelo-go/component"
+	"pomelo-go/tool"
 	"time"
 )
 
@@ -34,7 +35,7 @@ type Node struct {
 	handler      *LocalHandler          // 处理本地或远程Handler调用
 	masterClient clusterpb.MasterClient // 与master通信的客户端 对应pomelo的monitor
 	rpcClient    *rpcClient
-	//server  *grpcServer            // rpc服务端
+	server       *clusterpb.MqttMemberServer // 本地rpc服务端
 
 	//sessions map[int64]*session.Session
 }
@@ -95,9 +96,35 @@ func (n *Node) Shutdown() {
 
 }
 
+func (n *Node) RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
+	logx.Info("node RequestHandler,in:", tool.SimpleJson(in))
+
+	res := []interface{}{
+		map[string]interface{}{
+			"A": "a",
+			"B": "b",
+		},
+	}
+
+	r := proto.RequestResponse(res)
+	return &r, nil
+}
+
+func (n *Node) NotifyHandler(ctx context.Context, in *proto.NotifyRequest) {
+	logx.Info("node NotifyHandler,in:", tool.SimpleJson(in))
+
+}
+
 func (n *Node) initNode() error {
 	if !n.IsMaster && n.AdvertiseAddr == "" {
 		return errors.New("invalid AdvertiseAddr")
+	}
+
+	n.server = clusterpb.NewMqttMasterServer(n)
+
+	err := n.server.Listen(n.ServiceAddr)
+	if err != nil {
+		return err
 	}
 
 	mqttMasterClient := clusterpb.NewMqttMasterClient(n.AdvertiseAddr)
@@ -116,7 +143,7 @@ func (n *Node) initNode() error {
 		retryTimes--
 	}
 
-	_, err := mqttMasterClient.MonitorHandler(context.Background(), &proto.MonitorHandlerRequest{
+	_, err = mqttMasterClient.MonitorHandler(context.Background(), &proto.MonitorHandlerRequest{
 		CallBackHandler: func(action proto.MonitorAction, serverInfos []proto.ClusterServerInfo) { // 收到master推送的消息变更
 
 			switch action {
@@ -179,6 +206,7 @@ func (n *Node) initNode() error {
 }
 
 // Enable current server accept connection
+// 与pomelo端通信
 func (n *Node) listenAndServe() {
 
 }

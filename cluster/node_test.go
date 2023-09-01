@@ -39,13 +39,13 @@ func TestNode_Startup(t *testing.T) {
 	opt := Options{
 		IsMaster:      false,
 		ServerId:      serverid,
-		AdvertiseAddr: "localhost:3005",
+		AdvertiseAddr: "localhost:3005", // master 地址
 		ServerInfo: proto.ClusterServerInfo{
 			"serverType": proto.ServerType_Recover,
 			"id":         serverid,
 			"type":       proto.Type_Monitor,
 			"pid":        99,
-			"info": map[string]interface{}{
+			"info": map[string]interface{}{ // 本地服务信息
 				"serverType": proto.ServerType_Recover,
 				"id":         serverid,
 				"env":        "local",
@@ -66,7 +66,7 @@ func TestNode_Startup(t *testing.T) {
 
 	n := &Node{
 		Options:     opt,
-		ServiceAddr: "127.0.0.1:4450",
+		ServiceAddr: "127.0.0.1:8081", // 本地服务地址
 	}
 
 	err := n.Startup()

@@ -5,6 +5,7 @@ import (
 	"pomelo-go/cluster/clusterpb/proto"
 )
 
+// MasterClient 与master的双向通信（请求响应式+推送式）
 type MasterClient interface {
 	// Register 向master注册服务信息
 	Register(ctx context.Context, in *proto.RegisterRequest) (*proto.RegisterResponse, error)
@@ -19,6 +20,7 @@ type MasterClient interface {
 type MasterServer interface {
 }
 
+// MemberClient 与服务rpc的双向通信（请求响应式）
 type MemberClient interface {
 	// Request 发送Request rpc请求
 	Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
@@ -26,11 +28,12 @@ type MemberClient interface {
 	Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
 }
 
+// MemberServer 服务rpc的双向通信（请求响应式）
 type MemberServer interface {
 	// RequestHandler 处理Request rpc请求
 	RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
 	// NotifyHandler 处理Notify rpc请求
-	NotifyHandler(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
+	NotifyHandler(ctx context.Context, in *proto.NotifyRequest)
 }
 
 type MasterClientAgent interface {

@@ -81,21 +81,23 @@ type (
 	MonitorHandlerResponse struct{}
 )
 
+type RpcMessage struct {
+	Namespace  string          `json:"namespace"`
+	ServerType string          `json:"serverType"`
+	Service    string          `json:"service"`
+	Method     string          `json:"method"`
+	Args       json.RawMessage `json:"args"`
+}
+
 // Request 发送Request rpc请求
 type (
-	RequestRequest struct {
-		Namespace  string          `json:"namespace"`
-		ServerType string          `json:"serverType"`
-		Service    string          `json:"service"`
-		Method     string          `json:"method"`
-		Args       json.RawMessage `json:"args"`
-	}
+	RequestRequest RpcMessage
 
-	RequestResponse []interface{}
+	RequestResponse interface{}
 )
 
 // Notify 发送Notify rpc请求
 type (
-	NotifyRequest  struct{}
+	NotifyRequest  RpcMessage
 	NotifyResponse struct{}
 )

@@ -4,11 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	mqtt "github.com/mochi-mqtt/server/v2"
 	"github.com/mochi-mqtt/server/v2/listeners"
 	"github.com/mochi-mqtt/server/v2/packets"
 	"github.com/zeromicro/go-zero/core/logx"
+	"github.com/zeromicro/go-zero/core/timex"
 	"pomelo-go/cluster/clusterpb/proto"
+	"pomelo-go/tool"
 )
 
 type MqttMemberServer struct {
@@ -44,43 +47,43 @@ func (m *MqttMemberServer) Listen(advertiseAddr string) error {
 	return nil
 }
 
-func (m *MqttMemberServer) PublishHandler(message rpcMessage) {
+func (m *MqttMemberServer) publishHandler(message rpcRequest) (*packets.Packet, error) {
 
-	if message.Id == 0 {
-
-	} else {
-
-		requestRequest := proto.RequestRequest{}
-
-		err := json.Unmarshal(message.Resp, &requestRequest)
-		if err != nil {
-			logx.Errorf("RequestRequest json.Unmarshal failed ,err:%s", err)
-			return
-		}
-
-		var response interface{}
-
-		requestResponse, err := m.memberServer.RequestHandler(context.Background(), &requestRequest)
-		if err != nil {
-			response = err.Error()
-		} else {
-			response = requestResponse
-		}
-
-		data, err := json.Marshal(response)
-		if err != nil {
-			logx.Errorf("server.Publish err response Marshal failed ,err:%s", err)
-			return
-		}
-
-		err = m.server.Publish("rpc", data, false, 0)
-		if err != nil {
-			logx.Errorf("server.Publish err response failed ,err:%s", err)
-			return
-		}
-
+	in := proto.RequestRequest(message.Msg)
+	requestResponse, err := m.memberServer.RequestHandler(context.Background(), &in)
+	response := rpcMessageResponse{
+		Id:   *message.Id,
+		Resp: append([]interface{}{err}, *requestResponse),
 	}
 
+	if err != nil {
+		logx.Errorf("m.memberServer.RequestHandler failed, err:", err)
+	}
+
+	data, err := json.Marshal(response)
+	if err != nil {
+		logx.Errorf("server.Publish err response Marshal failed ,err:%s", err)
+		return nil, err
+	}
+
+	res := &packets.Packet{
+		FixedHeader: packets.FixedHeader{
+			Type: packets.Publish,
+		},
+		TopicName: topic_RPC,
+		Payload:   data,
+	}
+
+	return res, nil
+}
+
+func (m *MqttMemberServer) notifyHandler(message rpcRequest) error {
+
+	in := proto.NotifyRequest(message.Msg)
+
+	m.memberServer.NotifyHandler(context.Background(), &in)
+
+	return nil
 }
 
 func NewMqttMasterServer(memberServer MemberServer) *MqttMemberServer {
@@ -150,9 +153,7 @@ func (h *hook) OnUnsubscribed(cl *mqtt.Client, pk packets.Packet) {
 func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) {
 	if err != nil {
 		logx.Errorf("OnPacketProcessed failed , id:%s , err:%s", cl.ID, err)
-
-	} else {
-		logx.Infof("OnPacketProcessed packet id:%s, pk:%+v,err:%s", cl.ID, pk, err)
+		return
 	}
 
 	switch pk.FixedHeader.Type {
@@ -168,7 +169,7 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 
 	case packets.Publish:
 
-		m := rpcMessage{}
+		m := rpcRequest{}
 
 		err := json.Unmarshal(pk.Payload, &m)
 		if err != nil {
@@ -176,7 +177,45 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 			return
 		}
 
-		h.mqttMasterServer.PublishHandler(m)
+		startTime := timex.Now()
+
+		if m.Id == nil {
+
+			logx.Debugf("[Notify] -- %s.%s.%s.%s - request:%s", m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, tool.SimpleJson(m.Msg.Args))
+
+			err := h.mqttMasterServer.notifyHandler(m)
+			if err != nil {
+				logx.Errorf("[Notify] %d -- %s.%s.%s.%s - handler err:%s", m.Id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, err.Error())
+				return
+			}
+
+		} else {
+
+			id := *m.Id
+
+			logx.Debugf("[Request] %d -- %s.%s.%s.%s - request:%s", id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, tool.SimpleJson(m.Msg.Args))
+
+			pkg, err := h.mqttMasterServer.publishHandler(m)
+
+			var ( //  TODO 日志相关 优化
+				duration = timex.ReprOfDuration(timex.Since(startTime))
+				router   = fmt.Sprintf("%s.%s.%s.%s", m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method)
+			)
+
+			if err != nil {
+
+				logx.Errorf("[Request ERR] %d %s -- %s - handler err:%s", id, duration, router, err.Error())
+				return
+			}
+
+			err = cl.WritePacket(*pkg)
+			if err != nil {
+				logx.Errorf("[Request ERR] %d %s -- %s - writePacket err:%s", id, duration, router, err.Error())
+				return
+			}
+
+			logx.Debugf("[Request OK] %d %s -- %s - response:%s", id, duration, router, tool.SimpleJson(pkg.Payload))
+		}
 
 	case packets.Puback:
 		logx.Infof("OnPacketProcessed Puback , id:%s, payload:%s", cl.ID, pk.Payload)
@@ -203,7 +242,7 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 		logx.Infof("OnPacketProcessed Unsuback , id:%s, payload:%s", cl.ID, pk.Payload)
 
 	case packets.Pingreq:
-		logx.Infof("OnPacketProcessed Pingreq , id:%s, payload:%s", cl.ID, pk.Payload)
+		logx.Debugf("OnPacketProcessed Pingreq , id:%s, payload:%s", cl.ID, pk.Payload)
 
 	case packets.Pingresp:
 		logx.Infof("OnPacketProcessed Pingresp , id:%s, payload:%s", cl.ID, pk.Payload)
@@ -238,4 +277,9 @@ func (h *hook) OnPublish(cl *mqtt.Client, pk packets.Packet) (packets.Packet, er
 
 func (h *hook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
 	h.Log.Info().Str("client", cl.ID).Str("payload", string(pk.Payload)).Msg("published to client")
+}
+
+type rpcRequest struct {
+	Id  *int             `json:"id,omitempty"`
+	Msg proto.RpcMessage `json:"msg"`
 }

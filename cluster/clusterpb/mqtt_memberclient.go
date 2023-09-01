@@ -34,18 +34,13 @@ type MqttMemberClient struct {
 
 func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
 
-	type rpcRequestData struct {
-		ID  int         `json:"id"`
-		Msg interface{} `json:"msg"`
-	}
-
 	m.reqIdMutex.Lock()
 	m.reqId++
 	var reqId = m.reqId
 	m.reqIdMutex.Unlock()
 
-	err := m.doSend(topic_RPC, rpcRequestData{
-		ID:  reqId,
+	err := m.doSend(topic_RPC, rpcRequestMessageRequest{
+		Id:  reqId,
 		Msg: in,
 	})
 
@@ -54,7 +49,7 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 	}
 
 	r := memberRequest{
-		resp:  make(chan rpcMessage),
+		resp:  make(chan rpcMessageResponse),
 		reqId: reqId,
 	}
 
@@ -62,14 +57,9 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 
 	select {
 	case resp := <-r.resp:
-		res := proto.RequestResponse{}
-
-		err := json.Unmarshal(resp.Resp, &res)
-		if err != nil {
-			return nil, err
-		}
-
-		return &res, nil
+		// TODO: 从[]interface 中拆分出来 response 和 error
+		// &[<nil> map[interactMode:0 length:1 mainTeacherClientVer:2.9.8.7 users:[]]]
+		return &resp.Resp, nil
 
 	case <-time.After(m.requestTimeout):
 		return nil, errors.New("timeout")
@@ -78,11 +68,8 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 }
 
 func (m *MqttMemberClient) Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
-	type rpcNotifyData struct {
-		Msg interface{} `json:"msg"`
-	}
 
-	err := m.doSend(topic_RPC, rpcNotifyData{
+	err := m.doSend(topic_RPC, rpcNotifyMessageRequest{
 		Msg: in,
 	})
 
@@ -129,7 +116,7 @@ func (m *MqttMemberClient) publishHandler(client mqtt.Client, message mqtt.Messa
 
 	case topic_RPC:
 
-		msg := rpcMessage{}
+		msg := rpcMessageResponse{}
 
 		err := json.Unmarshal(message.Payload(), &msg)
 		if err != nil {
@@ -197,11 +184,25 @@ func NewMqttMemberClient(advertiseAddr string) MemberClientAgent {
 }
 
 type memberRequest struct {
-	resp  chan rpcMessage
+	resp  chan rpcMessageResponse
 	reqId int
 }
 
-type rpcMessage struct {
-	Id   int             `json:"id"`   //  "respId": 1,
-	Resp json.RawMessage `json:"resp"` // 不同返回值的
-}
+type (
+	// rpc请求的结构
+	rpcRequestMessageRequest struct {
+		Id  int                   `json:"id"`
+		Msg *proto.RequestRequest `json:"msg"`
+	}
+
+	// rpc notify 请求的结构
+	rpcNotifyMessageRequest struct {
+		Msg *proto.NotifyRequest `json:"msg"`
+	}
+
+	// rpc响应的返回值结构
+	rpcMessageResponse struct {
+		Id   int                   `json:"id"`   //  "respId": 1,
+		Resp proto.RequestResponse `json:"resp"` // 不同返回值的
+	}
+)
