@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"pomelo-go/tool"
 	"sync"
 
 	"github.com/zeromicro/go-zero/core/logx"
@@ -12,18 +13,13 @@ import (
 	"pomelo-go/component"
 )
 
-//type rpcHandler func(session *session.Session, msg *message.Message, noCopy bool)
-
-//// CustomerRemoteServiceRoute customer remote service route
-//type CustomerRemoteServiceRoute func(service string, session *session.Session, members []*clusterpb.MemberInfo) *clusterpb.MemberInfo
-
 type LocalHandler struct {
-	localServices map[string]*component.Service // all registered service
-	localHandlers map[string]*component.Handler // all handler method
+	//localServices map[string]*component.Service // all registered service
 
 	mu             sync.RWMutex
 	remoteServices map[string][]RemoteServiceInfo // key:serverType value: node serverInfo 数组
 	currentNode    *Node
+	components     *component.Components
 }
 
 type RemoteServiceInfo struct {
@@ -34,26 +30,14 @@ type RemoteServiceInfo struct {
 
 func NewHandler(currentNode *Node) *LocalHandler {
 	h := &LocalHandler{
-		localServices:  make(map[string]*component.Service),
-		localHandlers:  make(map[string]*component.Handler),
+		//localServices:  make(map[string]*component.Service),
 		mu:             sync.RWMutex{},
 		remoteServices: make(map[string][]RemoteServiceInfo),
 		currentNode:    currentNode,
+		components:     currentNode.Components,
 	}
 
 	return h
-}
-
-func (h *LocalHandler) register(comp component.Component, opts []component.Option) error {
-	s := component.NewService(comp, opts)
-
-	if _, ok := h.localServices[s.Name]; ok {
-		return fmt.Errorf("handler: service already defined: %s", s.Name)
-	}
-
-	// register all localHandlers
-	h.localServices[s.Name] = s
-	return nil
 }
 
 func (h *LocalHandler) initRemoteService(members []RemoteServiceInfo) {
@@ -74,7 +58,7 @@ func (h *LocalHandler) delMember(addr string) {
 	// TODO
 }
 
-func (h *LocalHandler) remoteProcess(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
+func (h *LocalHandler) remoteProcess(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error) {
 
 	// 		Namespace:  "user",
 	//		ServerType: "chat",
@@ -127,6 +111,25 @@ func (h *LocalHandler) findMembers(service string) []RemoteServiceInfo {
 	return h.remoteServices[service]
 }
 
-func (h *LocalHandler) localProcess() {
+func (h *LocalHandler) localProcess(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error) {
+	logx.Info("node RequestHandler,in:", tool.SimpleJson(in))
 
+	//  msg: {
+	//    namespace: 'sys',
+	//    serverType: 'chat',
+	//    service: 'msgRemote',
+	//    method: 'forwardMessage',
+	//    args: [ [Object], [Object] ]
+	//  }
+
+	router := fmt.Sprintf("%s.%s.%s.%s", in.Namespace, in.ServerType, in.Service, in.Method)
+
+	handler, ok := h.components.Router[router]
+	if !ok {
+		return nil, errors.New(fmt.Sprintf("invalid router name %s", router))
+	}
+
+	out := handler(context.Background(), in.Args)
+	r := proto.RequestResponse(out)
+	return r, nil
 }

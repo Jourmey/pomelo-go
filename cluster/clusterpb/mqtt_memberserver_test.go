@@ -12,12 +12,7 @@ type myMemberServer struct {
 
 func (m *myMemberServer) RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
 	logx.Info("myMemberServer RequestHandler")
-	return &proto.RequestResponse{}, nil
-}
-
-func (m *myMemberServer) NotifyHandler(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
-	logx.Info("myMemberServer NotifyHandler")
-	return &proto.NotifyResponse{}, nil
+	return nil, nil
 }
 
 func Test_NewMqttMasterServer(t *testing.T) {

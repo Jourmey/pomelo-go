@@ -73,24 +73,44 @@ type (
 	MonitorHandlerResponse struct{}
 )
 
-type RpcMessage struct {
-	Namespace  string          `json:"namespace"`
-	ServerType string          `json:"serverType"`
-	Service    string          `json:"service"`
-	Method     string          `json:"method"`
-	Args       json.RawMessage `json:"args"`
-}
-
 // Request 发送Request rpc请求
 type (
-	RequestRequest RpcMessage
+	RequestRequest struct {
+		Namespace  string            `json:"namespace"`
+		ServerType string            `json:"serverType"`
+		Service    string            `json:"service"`
+		Method     string            `json:"method"`
+		Args       []json.RawMessage `json:"args"` // [2]interface{}{*Session , *Message }
+	}
 
-	RequestResponse interface{}
+	RequestResponse []json.RawMessage
 )
 
-// Notify 发送Notify rpc请求
-type (
-	NotifyRequest RpcMessage
+type Session struct {
+	Id         int     `json:"id"`
+	FrontendId string  `json:"frontendId"`
+	Uid        string  `json:"uid"`
+	Settings   Setting `json:"settings"`
+}
 
-	NotifyResponse struct{}
-)
+type Setting struct {
+	UniqId    string `json:"uniqId"`
+	Rid       string `json:"rid"`
+	Rtype     int    `json:"rtype"`
+	Role      int    `json:"role"`
+	Ulevel    int    `json:"ulevel"`
+	Uname     int    `json:"uname"`
+	Classid   string `json:"classid"`
+	ClientVer string `json:"clientVer"`
+	UserVer   string `json:"userVer"`
+	LiveType  int    `json:"liveType"`
+}
+
+type Message struct {
+	Id            int             `json:"id"`
+	Type          int             `json:"type"`
+	CompressRoute int             `json:"compressRoute"`
+	Route         string          `json:"route"`
+	CompressGzip  int             `json:"compressGzip"`
+	Body          json.RawMessage `json:"body"`
+}

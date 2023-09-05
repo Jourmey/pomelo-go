@@ -23,17 +23,13 @@ type MasterServer interface {
 // MemberClient 与服务rpc的双向通信（请求响应式）
 type MemberClient interface {
 	// Request 发送Request rpc请求
-	Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
-	// Notify 发送Notify rpc请求
-	Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error)
+	Request(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error)
 }
 
 // MemberServer 服务rpc的双向通信（请求响应式）
 type MemberServer interface {
 	// RequestHandler 处理Request rpc请求
-	RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error)
-	// NotifyHandler 处理Notify rpc请求
-	NotifyHandler(ctx context.Context, in *proto.NotifyRequest)
+	RequestHandler(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error)
 }
 
 type MasterClientAgent interface {

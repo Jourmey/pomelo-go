@@ -32,16 +32,16 @@ type MqttMemberClient struct {
 	resp   sync.Map // monitor memberRequest 请求列表
 }
 
-func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
+func (m *MqttMemberClient) Request(ctx context.Context, in proto.RequestRequest) (out proto.RequestResponse, err error) {
 
 	m.reqIdMutex.Lock()
 	m.reqId++
 	var reqId = m.reqId
 	m.reqIdMutex.Unlock()
 
-	err := m.doSend(topic_RPC, rpcRequestMessageRequest{
+	err = m.doSend(topic_RPC, rpcRequestMessageRequest{
 		Id:  reqId,
-		Msg: in,
+		Msg: &in,
 	})
 
 	if err != nil {
@@ -59,25 +59,12 @@ func (m *MqttMemberClient) Request(ctx context.Context, in *proto.RequestRequest
 	case resp := <-r.resp:
 		// TODO: 从[]interface 中拆分出来 response 和 error
 		// &[<nil> map[interactMode:0 length:1 mainTeacherClientVer:2.9.8.7 users:[]]]
-		return &resp.Resp, nil
+		return resp.Resp, nil
 
 	case <-time.After(m.requestTimeout):
 		return nil, errors.New("timeout")
 	}
 
-}
-
-func (m *MqttMemberClient) Notify(ctx context.Context, in *proto.NotifyRequest) (*proto.NotifyResponse, error) {
-
-	err := m.doSend(topic_RPC, rpcNotifyMessageRequest{
-		Msg: in,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return &proto.NotifyResponse{}, nil
 }
 
 func (m *MqttMemberClient) Connect() error {
@@ -193,11 +180,6 @@ type (
 	rpcRequestMessageRequest struct {
 		Id  int                   `json:"id"`
 		Msg *proto.RequestRequest `json:"msg"`
-	}
-
-	// rpc notify 请求的结构
-	rpcNotifyMessageRequest struct {
-		Msg *proto.NotifyRequest `json:"msg"`
 	}
 
 	// rpc响应的返回值结构

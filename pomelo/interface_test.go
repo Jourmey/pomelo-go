@@ -72,12 +72,12 @@ func Test_RemoteProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := RemoteProcess(context.Background(), &proto.RequestRequest{
+	res, err := RemoteProcess(context.Background(), proto.RequestRequest{
 		Namespace:  "user",
 		ServerType: "chat",
 		Service:    "chatRemote",
 		Method:     "add",
-		Args:       body,
+		Args:       []json.RawMessage{body},
 	})
 
 	if err != nil {

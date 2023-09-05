@@ -8,7 +8,6 @@ import (
 	"pomelo-go/cluster/clusterpb"
 	"pomelo-go/cluster/clusterpb/proto"
 	"pomelo-go/component"
-	"pomelo-go/tool"
 	"time"
 )
 
@@ -48,25 +47,25 @@ func (n *Node) Startup() error {
 	n.rpcClient = newRPCClient()
 	n.handler = NewHandler(n)
 
-	components := n.Components.List()
-	for _, c := range components {
-		err := n.handler.register(c.Comp, c.Opts)
-		if err != nil {
-			return err
-		}
-	}
+	//components := n.Components.List()
+	//for _, c := range components {
+	//err := n.handler.register(n.Options.Components)
+	//if err != nil {
+	//	return err
+	//}
+	//}
 
 	if err := n.initNode(); err != nil {
 		return err
 	}
 
-	// Initialize all components
-	for _, c := range components {
-		c.Comp.Init()
-	}
-	for _, c := range components {
-		c.Comp.AfterInit()
-	}
+	//// Initialize all components
+	//for _, c := range components {
+	//	c.Comp.Init()
+	//}
+	//for _, c := range components {
+	//	c.Comp.AfterInit()
+	//}
 
 	return nil
 }
@@ -76,43 +75,29 @@ func (n *Node) Handler() *LocalHandler {
 }
 
 // RemoteProcess 远程调用
-func (n *Node) RemoteProcess(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
+func (n *Node) RemoteProcess(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error) {
 	return n.handler.remoteProcess(ctx, in)
 }
 
 func (n *Node) Shutdown() {
-	// reverse call `BeforeShutdown` hooks
-	components := n.Components.List()
-	length := len(components)
-	for i := length - 1; i >= 0; i-- {
-		components[i].Comp.BeforeShutdown()
-	}
-	// reverse call `Shutdown` hooks
-	for i := length - 1; i >= 0; i-- {
-		components[i].Comp.Shutdown()
-	}
+	//// reverse call `BeforeShutdown` hooks
+	//components := n.Components.List()
+	//length := len(components)
+	//for i := length - 1; i >= 0; i-- {
+	//	components[i].Comp.BeforeShutdown()
+	//}
+	//// reverse call `Shutdown` hooks
+	//for i := length - 1; i >= 0; i-- {
+	//	components[i].Comp.Shutdown()
+	//}
 
 	//_, err = client.Unregister(context.Background(), request)
 
 }
 
-func (n *Node) RequestHandler(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
-	logx.Info("node RequestHandler,in:", tool.SimpleJson(in))
+func (n *Node) RequestHandler(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error) {
 
-	res := []interface{}{
-		map[string]interface{}{
-			"A": "a",
-			"B": "b",
-		},
-	}
-
-	r := proto.RequestResponse(res)
-	return &r, nil
-}
-
-func (n *Node) NotifyHandler(ctx context.Context, in *proto.NotifyRequest) {
-	logx.Info("node NotifyHandler,in:", tool.SimpleJson(in))
-
+	return n.handler.localProcess(ctx, in)
 }
 
 func (n *Node) initNode() error {

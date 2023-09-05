@@ -85,7 +85,7 @@ func Shutdown() {
 	close(die)
 }
 
-func RemoteProcess(ctx context.Context, in *proto.RequestRequest) (*proto.RequestResponse, error) {
+func RemoteProcess(ctx context.Context, in proto.RequestRequest) (proto.RequestResponse, error) {
 	if currentNode == nil {
 		return nil, errors.New("invalid node")
 	}

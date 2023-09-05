@@ -66,12 +66,12 @@ func Test_MqttMemberClient_Request(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := memberClient.Request(context.Background(), &proto.RequestRequest{
+	res, err := memberClient.Request(context.Background(), proto.RequestRequest{
 		Namespace:  "user",
 		ServerType: "chat",
 		Service:    "chatRemote",
 		Method:     "add",
-		Args:       body,
+		Args:       []json.RawMessage{body},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -11,6 +11,7 @@ import (
 	"github.com/zeromicro/go-zero/core/logx"
 	"github.com/zeromicro/go-zero/core/timex"
 	"pomelo-go/cluster/clusterpb/proto"
+	"pomelo-go/tool"
 )
 
 type MqttMemberServer struct {
@@ -49,14 +50,15 @@ func (m *MqttMemberServer) Listen(advertiseAddr string) error {
 func (m *MqttMemberServer) publishHandler(message rpcRequest) (*packets.Packet, error) {
 
 	in := proto.RequestRequest(message.Msg)
-	requestResponse, err := m.memberServer.RequestHandler(context.Background(), &in)
-	response := rpcMessageResponse{
-		Id:   *message.Id,
-		Resp: append([]interface{}{err}, *requestResponse),
-	}
-
+	requestResponse, err := m.memberServer.RequestHandler(context.Background(), in)
 	if err != nil {
 		logx.Errorf("m.memberServer.RequestHandler failed, err:", err)
+		return nil, err
+	}
+
+	response := rpcMessageResponse{
+		Id:   *message.Id,
+		Resp: requestResponse,
 	}
 
 	data, err := json.Marshal(response)
@@ -74,15 +76,6 @@ func (m *MqttMemberServer) publishHandler(message rpcRequest) (*packets.Packet, 
 	}
 
 	return res, nil
-}
-
-func (m *MqttMemberServer) notifyHandler(message rpcRequest) error {
-
-	in := proto.NotifyRequest(message.Msg)
-
-	m.memberServer.NotifyHandler(context.Background(), &in)
-
-	return nil
 }
 
 func NewMqttMasterServer(memberServer MemberServer) *MqttMemberServer {
@@ -180,19 +173,13 @@ func (h *hook) OnPacketProcessed(cl *mqtt.Client, pk packets.Packet, err error) 
 
 		if m.Id == nil {
 
-			logx.Debugf("[Notify] -- %s.%s.%s.%s - request:%s", m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, string(m.Msg.Args))
-
-			err := h.mqttMasterServer.notifyHandler(m)
-			if err != nil {
-				logx.Errorf("[Notify] %d -- %s.%s.%s.%s - handler err:%s", m.Id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, err.Error())
-				return
-			}
+			logx.Errorf("[Notify] -- %s.%s.%s.%s - request:%s", m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, tool.SimpleJson(m.Msg.Args))
 
 		} else {
 
 			id := *m.Id
 
-			logx.Debugf("[Request] %d -- %s.%s.%s.%s - request:%s", id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, string(m.Msg.Args))
+			logx.Debugf("[Request] %d -- %s.%s.%s.%s - request:%s", id, m.Msg.Namespace, m.Msg.ServerType, m.Msg.Service, m.Msg.Method, tool.SimpleJson(m.Msg.Args))
 
 			pkg, err := h.mqttMasterServer.publishHandler(m)
 
@@ -279,6 +266,6 @@ func (h *hook) OnPublished(cl *mqtt.Client, pk packets.Packet) {
 }
 
 type rpcRequest struct {
-	Id  *int             `json:"id,omitempty"`
-	Msg proto.RpcMessage `json:"msg"`
+	Id  *int                 `json:"id,omitempty"`
+	Msg proto.RequestRequest `json:"msg"`
 }
