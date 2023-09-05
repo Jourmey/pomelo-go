@@ -58,7 +58,7 @@ func (m *MqttMemberServer) publishHandler(message rpcRequest) (*packets.Packet, 
 
 	response := rpcMessageResponse{
 		Id:   *message.Id,
-		Resp: requestResponse,
+		Resp: json.RawMessage(requestResponse),
 	}
 
 	data, err := json.Marshal(response)

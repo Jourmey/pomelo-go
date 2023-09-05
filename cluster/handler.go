@@ -5,21 +5,21 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"pomelo-go/component"
 	"pomelo-go/tool"
 	"sync"
 
 	"github.com/zeromicro/go-zero/core/logx"
 	"pomelo-go/cluster/clusterpb/proto"
-	"pomelo-go/component"
 )
 
 type LocalHandler struct {
-	//localServices map[string]*component.Service // all registered service
+	currentNode *Node
+	mu          sync.RWMutex
 
-	mu             sync.RWMutex
+	//localServices map[string]*component.Service // all registered service
+	localHandlers  map[string]component.Handler   // all handler method
 	remoteServices map[string][]RemoteServiceInfo // key:serverType value: node serverInfo 数组
-	currentNode    *Node
-	components     *component.Components
 }
 
 type RemoteServiceInfo struct {
@@ -32,12 +32,26 @@ func NewHandler(currentNode *Node) *LocalHandler {
 	h := &LocalHandler{
 		//localServices:  make(map[string]*component.Service),
 		mu:             sync.RWMutex{},
+		localHandlers:  make(map[string]component.Handler, 0),
 		remoteServices: make(map[string][]RemoteServiceInfo),
 		currentNode:    currentNode,
-		components:     currentNode.Components,
 	}
 
 	return h
+}
+
+func (h *LocalHandler) register(comp component.Component, opts []component.Option) error {
+	handlers := comp.Routes()
+	for route, handler := range handlers {
+
+		if _, ok := h.localHandlers[route]; ok {
+			return fmt.Errorf("handler: route already defined: %s", route)
+		}
+
+		h.localHandlers[route] = handler
+	}
+
+	return nil
 }
 
 func (h *LocalHandler) initRemoteService(members []RemoteServiceInfo) {
@@ -68,8 +82,7 @@ func (h *LocalHandler) remoteProcess(ctx context.Context, in proto.RequestReques
 	members := h.findMembers(in.ServerType)
 	if len(members) == 0 {
 
-		route := fmt.Sprintf("%s.%s.%s.%s", in.Namespace, in.ServerType, in.Service, in.Method)
-		return nil, errors.New(fmt.Sprintf("nano/handler: %s not found(forgot registered?)", route))
+		return nil, errors.New(fmt.Sprintf("nano/handler: %s not found(forgot registered?)", in.ServerType))
 	}
 
 	// Select a remote service address
@@ -78,7 +91,7 @@ func (h *LocalHandler) remoteProcess(ctx context.Context, in proto.RequestReques
 	// 3. Select a remote service address randomly and bind to router
 	var remoteAddr string
 	if false { //h.currentNode.Options.RemoteServiceRoute != nil {
-		//if addr, found := session.Router().Find(service); found {
+		//if addr, found := session.router().Find(service); found {
 		//	remoteAddr = addr
 		//} else {
 		//	member := h.currentNode.Options.RemoteServiceRoute(service, session, members)
@@ -87,7 +100,7 @@ func (h *LocalHandler) remoteProcess(ctx context.Context, in proto.RequestReques
 		//		return
 		//	}
 		//	remoteAddr = member.ServiceAddr
-		//	session.Router().Bind(service, remoteAddr)
+		//	session.router().Bind(service, remoteAddr)
 		//}
 	} else {
 
@@ -124,7 +137,7 @@ func (h *LocalHandler) localProcess(ctx context.Context, in proto.RequestRequest
 
 	router := fmt.Sprintf("%s.%s.%s.%s", in.Namespace, in.ServerType, in.Service, in.Method)
 
-	handler, ok := h.components.Router[router]
+	handler, ok := h.localHandlers[router]
 	if !ok {
 		return nil, errors.New(fmt.Sprintf("invalid router name %s", router))
 	}

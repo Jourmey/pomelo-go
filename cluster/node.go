@@ -47,13 +47,13 @@ func (n *Node) Startup() error {
 	n.rpcClient = newRPCClient()
 	n.handler = NewHandler(n)
 
-	//components := n.Components.List()
-	//for _, c := range components {
-	//err := n.handler.register(n.Options.Components)
-	//if err != nil {
-	//	return err
-	//}
-	//}
+	components := n.Components.List()
+	for _, c := range components {
+		err := n.handler.register(c.Comp, c.Opts)
+		if err != nil {
+			return err
+		}
+	}
 
 	if err := n.initNode(); err != nil {
 		return err

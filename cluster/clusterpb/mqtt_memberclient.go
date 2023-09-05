@@ -57,9 +57,8 @@ func (m *MqttMemberClient) Request(ctx context.Context, in proto.RequestRequest)
 
 	select {
 	case resp := <-r.resp:
-		// TODO: 从[]interface 中拆分出来 response 和 error
 		// &[<nil> map[interactMode:0 length:1 mainTeacherClientVer:2.9.8.7 users:[]]]
-		return resp.Resp, nil
+		return proto.RequestResponse(resp.Resp), nil
 
 	case <-time.After(m.requestTimeout):
 		return nil, errors.New("timeout")
@@ -184,7 +183,7 @@ type (
 
 	// rpc响应的返回值结构
 	rpcMessageResponse struct {
-		Id   int                   `json:"id"`   //  "respId": 1,
-		Resp proto.RequestResponse `json:"resp"` // 不同返回值的
+		Id   int             `json:"id"`   //  "respId": 1,
+		Resp json.RawMessage `json:"resp"` // 不同返回值的
 	}
 )

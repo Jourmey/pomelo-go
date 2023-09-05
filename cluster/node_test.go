@@ -13,6 +13,10 @@ import (
 type MyComponent struct {
 }
 
+func (m MyComponent) Routes() (router map[string]component.Handler) {
+	return nil
+}
+
 func (m MyComponent) Init() {
 	fmt.Println("MyComponent.Init")
 }
@@ -32,7 +36,7 @@ func (m MyComponent) Shutdown() {
 func TestNode_Startup(t *testing.T) {
 
 	c := &component.Components{}
-	c.Register(&MyComponent{})
+	c.Register(&MyComponent{}, nil)
 
 	serverid := "cluster-server-record-996"
 
@@ -103,12 +107,12 @@ func TestNode_Startup(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	res, err := n.RemoteProcess(context.Background(), &proto.RequestRequest{
+	res, err := n.RemoteProcess(context.Background(), proto.RequestRequest{
 		Namespace:  "user",
 		ServerType: "chat",
 		Service:    "chatRemote",
 		Method:     "add",
-		Args:       body,
+		Args:       []json.RawMessage{body},
 	})
 
 	if err != nil {

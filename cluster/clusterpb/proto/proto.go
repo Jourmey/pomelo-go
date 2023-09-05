@@ -76,14 +76,14 @@ type (
 // Request 发送Request rpc请求
 type (
 	RequestRequest struct {
-		Namespace  string            `json:"namespace"`
-		ServerType string            `json:"serverType"`
-		Service    string            `json:"service"`
-		Method     string            `json:"method"`
-		Args       []json.RawMessage `json:"args"` // [2]interface{}{*Session , *Message }
+		Namespace  string          `json:"namespace"`
+		ServerType string          `json:"serverType"`
+		Service    string          `json:"service"`
+		Method     string          `json:"method"`
+		Args       json.RawMessage `json:"args"` // []interface{}{}
 	}
 
-	RequestResponse []json.RawMessage
+	RequestResponse json.RawMessage // []interface{}{}
 )
 
 type Session struct {
