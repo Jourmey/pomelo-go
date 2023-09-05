@@ -121,7 +121,7 @@ func Test_MqttMasterClient_MonitorHandler(t *testing.T) {
 
 func Test_monitorMessage(t *testing.T) {
 
-	s0 := `"{\"reqId\":53,\"moduleId\":\"__monitorwatcher__\",\"body\":{\"action\":\"addServer\",\"server\":[{\"channelType\":2,\"clientPort\":3061,\"cloudType\":1,\"clusterCount\":1,\"env\":\"local\",\"frontend\":\"true\",\"host\":\"127.0.0.1\",\"id\":\"cluster-server-connector-998\",\"port\":4061,\"recover\":\"true\",\"restart-force\":\"true\",\"serverType\":\"connector\",\"wssPort\":80,\"pid\":99}]}}"`
+	s0 := `"{\"reqId\":53,\"moduleId\":\"__monitorwatcher__\",\"body\":{\"action\":\"addServer\",\"server\":[{\"channelType\":2,\"clientPort\":3061,\"cloudType\":1,\"clusterCount\":1,\"env\":\"local\",\"frontend\":\"true\",\"host\":\"127.0.0.1\",\"id\":\"cluster-server-connector-998\",\"port\":4061,\"record\":\"true\",\"restart-force\":\"true\",\"serverType\":\"connector\",\"wssPort\":80,\"pid\":99}]}}"`
 
 	// 这里接收的字符串居然是转义后的
 	unescapedString, err := strconv.Unquote(s0)

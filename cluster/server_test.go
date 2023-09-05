@@ -7,7 +7,6 @@ import (
 	"pomelo-go/cluster/clusterpb/proto"
 	"pomelo-go/component"
 	"testing"
-	"time"
 )
 
 type MyComponent struct {
@@ -40,7 +39,7 @@ func TestNode_Startup(t *testing.T) {
 
 	serverid := "cluster-server-record-996"
 
-	opt := Options{
+	opt := Config{
 		IsMaster:      false,
 		ServerId:      serverid,
 		AdvertiseAddr: "localhost:3005", // master 地址
@@ -62,15 +61,15 @@ func TestNode_Startup(t *testing.T) {
 				"restart-force": "true",
 			},
 		},
-		RetryInterval: 5 * time.Second,
+		RetryInterval: 5,
 		RetryTimes:    60,
 		Token:         "agarxhqb98rpajloaxn34ga8xrunpagkjwlaw3ruxnpaagl29w4rxn",
-		Components:    c,
+		Listen:        "127.0.0.1:8081", // 本地服务地址
 	}
 
-	n := &Node{
-		Options:     opt,
-		ServiceAddr: "127.0.0.1:8081", // 本地服务地址
+	n := &Server{
+		cnf:        opt,
+		components: c,
 	}
 
 	err := n.Startup()
@@ -112,7 +111,7 @@ func TestNode_Startup(t *testing.T) {
 		ServerType: "chat",
 		Service:    "chatRemote",
 		Method:     "add",
-		Args:       []json.RawMessage{body},
+		Args:       body,
 	})
 
 	if err != nil {

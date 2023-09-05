@@ -1,5 +1,7 @@
+# 目前不支持master
+IsMaster: false
 # 服务名称
-Name: "cluster-server-record-996"
+ServerId: "cluster-server-record-996"
 # node服务对应的master地址
 AdvertiseAddr: "127.0.0.1:3005"
 # 本地服务rpc地址

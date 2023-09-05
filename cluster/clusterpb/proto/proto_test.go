@@ -10,7 +10,7 @@ func Test_RequestRequest(t *testing.T) {
 	var (
 		s = `{
         "namespace": "sys",
-        "serverType": "recover",
+        "serverType": "record",
         "service": "msgRemote",
         "method": "forwardMessage",
         "args": [
@@ -18,7 +18,7 @@ func Test_RequestRequest(t *testing.T) {
                 "id": 6,
                 "type": 0,
                 "compressRoute": 0,
-                "route": "recover.recoverHandler.msgRecoverTemporary",
+                "route": "record.recoverHandler.msgRecoverTemporary",
                 "body": {
                     "liveId": "live-1",
                     "lecturerId": "l-1",

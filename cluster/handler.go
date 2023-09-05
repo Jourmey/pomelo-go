@@ -14,7 +14,7 @@ import (
 )
 
 type LocalHandler struct {
-	currentNode *Node
+	currentNode *Server
 	mu          sync.RWMutex
 
 	//localServices map[string]*component.Service // all registered service
@@ -28,7 +28,7 @@ type RemoteServiceInfo struct {
 	ServiceAddr       string
 }
 
-func NewHandler(currentNode *Node) *LocalHandler {
+func NewHandler(currentNode *Server) *LocalHandler {
 	h := &LocalHandler{
 		//localServices:  make(map[string]*component.Service),
 		mu:             sync.RWMutex{},

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/zeromicro/go-zero/core/logx"
 	"pomelo-go/cluster/clusterpb/proto"
 	"pomelo-go/component"
 	"pomelo-go/internal/codec"
@@ -17,17 +18,18 @@ const (
 
 var _ = component.Component(&Component{})
 
-type Component struct {
-	component.Base
+type ForwardMessageHandler func(context.Context, proto.Session, proto.Message) (interface{}, error)
 
+type Component struct {
 	serverType string
+	router     map[string]ForwardMessageHandler
 }
 
 func NewComponent(serverType string) *Component {
 
 	return &Component{
-		Base:       component.Base{},
 		serverType: serverType,
+		router:     make(map[string]ForwardMessageHandler, 0),
 	}
 
 }
@@ -42,10 +44,16 @@ func (c *Component) Routes() (router map[string]component.Handler) {
 	return router
 }
 
-//func (c *Component) AddRoutes(rs []component.Route) {
-//
-//	c.router = append(c.router, rs...)
-//}
+func (c *Component) AddRoutes(rs []Route) {
+
+	for _, r := range rs {
+		if _, ok := c.router[r.Method]; ok {
+			panic(fmt.Errorf("handler: route already defined: %s", r.Method))
+		}
+
+		c.router[r.Method] = r.Handler
+	}
+}
 
 func (c *Component) forwardMessageHandler(ctx context.Context, in json.RawMessage) (out json.RawMessage) {
 
@@ -53,14 +61,31 @@ func (c *Component) forwardMessageHandler(ctx context.Context, in json.RawMessag
 	msg := proto.Message{}
 
 	if err := codec.Decode(in, []interface{}{&msg, &session}); err != nil {
+		return result(err, nil)
+	}
+
+	if handler, ok := c.router[msg.Route]; !ok {
+		return result(errors.New("invalid msg.route"), nil)
+
+	} else {
+
+		res, err := handler(ctx, session, msg)
+
+		return result(err, res)
+	}
+}
+
+func result(err error, msg interface{}) json.RawMessage {
+	if err != nil {
+		logx.Error("forwardMessage Component result failed,err:", err)
+
 		return codec.Encode(err.Error(), nil)
+	} else {
+		return codec.Encode(nil, msg)
 	}
+}
 
-	res := map[string]interface{}{
-		"a": "A",
-		"b": "BBB",
-	}
-
-	return codec.Encode(errors.New("test panic").Error(), res)
-	//return codec.Encode(nil, res)
+type Route struct {
+	Method  string
+	Handler ForwardMessageHandler
 }
